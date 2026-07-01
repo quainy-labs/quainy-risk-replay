@@ -68,48 +68,80 @@ risk-replay/
 
 The exact folders can change, but the separation should remain.
 
+## Phase Status Tracker
+
+| Phase | Status | Notes |
+|---|---|---|
+| 0. Align current showcase | Complete | README, plan, checklist, dashboard, typecheck, and build are in place. |
+| 1. Domain model foundation | Complete | Shared local gate models, threshold model, risk surface model, and dashboard-test adapter are in place. |
+| 2. Local config support | Complete | Config load/create/validate, schema errors, thresholds, report formats, and tests are in place. |
+| 3. Conservative context discovery | In progress | Safe local discovery and audit exist; prompt/tool/OpenAPI source support remains. |
+| 4. Agent profile extraction | In progress | Deterministic inference exists; UI review and richer missing-field handling remain. |
+| 5. Risk surface builder | Complete | Explicit risk surface object, report output, CLI summary, mapped coverage, and tests are in place for the current local gate. |
+| 6. Deterministic suite generator | In progress | All planned categories generate tests; more templates and variant caps needed. |
+| 7. Deduplication and variant control | In progress | Stable signatures and dedupe exist; variant caps need expansion. |
+| 8. Coverage scoring | Complete | Category, profile-field, high-severity, risk-surface, unknown, and incident coverage are implemented and tested. |
+| 9. Incident-to-regression | In progress | CLI template/import and exact/variant tests exist; UI and richer categorization remain. |
+| 10. Replay adapters | In progress | Mock, local HTTP, and command exist; script adapter and stronger adapter tests remain. |
+| 11. Local evaluators | In progress | Initial deterministic checks exist; more category-specific evaluators remain. |
+| 12. Reports | In progress | JSON/Markdown reports and critical coverage gates exist; UI report and audit summary integration remain. |
+| 13. CLI | In progress | Core commands exist and smoke-test locally; packaged distribution remains. |
+| 14. GitHub Actions | In progress | CLI workflow generation exists; published package/npx variant still needed. |
+| 15. UI upgrade | Not started | UI still uses earlier mock dashboard model. |
+| 16. Sample local agent | In progress | Command and HTTP demo agents exist; fixed passing report fixture still needed. |
+| 17. Documentation polish | In progress | README and plan are updated; full CLI/config/adapter guides remain. |
+| 18. Quality gate | Complete | `npm test`, `typecheck`, `build`, `audit`, and relevant CLI profile/generate smoke pass for current slice. |
+
 ## Phase 0: Align Current Showcase With Product Direction
 
-- [ ] Update README to clearly describe local-first release gate direction.
-- [ ] Keep current dashboard usable.
-- [ ] Link `PRODUCT_PLAN.md` and this checklist from README.
-- [ ] Make sure current mock replay still runs.
-- [ ] Make sure `npm run typecheck` passes.
-- [ ] Make sure `npm run build` passes.
+- [x] Update README to clearly describe local-first release gate direction.
+- [x] Keep current dashboard usable.
+- [x] Link `PRODUCT_PLAN.md` and this checklist from README.
+- [x] Make sure current mock replay still runs.
+- [x] Make sure `npm run typecheck` passes.
+- [x] Make sure `npm run build` passes.
 
 Acceptance:
 
-- [ ] A new visitor understands the current app and the planned full product.
-- [ ] The repo has one plan file and one build checklist file.
+- [x] A new visitor understands the current app and the planned full product.
+- [x] The repo has one plan file and one build checklist file.
 
 ## Phase 1: Domain Model Foundation
 
 Add typed models for:
 
-- [ ] `AgentProfile`
-- [ ] `AgentTool`
-- [ ] `DataSource`
-- [ ] `SensitiveDataType`
-- [ ] `ApprovalBoundary`
-- [ ] `RiskCategory`
-- [ ] `RiskSurfaceItem`
-- [ ] `GeneratedTestCase`
-- [ ] `Incident`
-- [ ] `CoverageReport`
-- [ ] `ReplayAdapterConfig`
-- [ ] `ReplayResult`
-- [ ] `ReleaseReport`
+- [x] `AgentProfile`
+- [x] `AgentTool`
+- [x] `DataSource`
+- [x] `SensitiveDataType`
+- [x] `ApprovalBoundary`
+- [x] `RiskCategory`
+- [x] `RiskSurfaceItem`
+- [x] `GeneratedTestCase`
+- [x] `Incident`
+- [x] `CoverageReport`
+- [x] `ReplayAdapterConfig`
+- [x] `ReplayResult`
+- [x] `ReleaseReport`
 
 Tests:
 
-- [ ] Type-level compile coverage through `npm run typecheck`.
-- [ ] Unit tests for profile validation.
-- [ ] Unit tests for default thresholds and readiness inputs.
+- [x] Type-level compile coverage through `npm run typecheck`.
+- [x] Unit tests for profile validation.
+- [x] Unit tests for default thresholds and readiness inputs.
 
 Acceptance:
 
-- [ ] Existing dashboard still works.
-- [ ] Old test case model is either migrated or cleanly adapted.
+- [x] Existing dashboard still works.
+- [x] Old test case model is either migrated or cleanly adapted.
+
+Current progress:
+
+- [x] Added first local release gate types and engine in `lib/localGate.ts`.
+- [x] Added CLI-accessible config, suite, coverage, replay result, and report models.
+- [x] Added explicit `RiskSurfaceItem` model for traceable local risk mapping.
+- [x] Added `DataSource`, `SensitiveDataType`, `ApprovalBoundary`, and threshold domain types.
+- [x] Added `adaptDashboardTestCase` so the original showcase test model has an explicit path into the local gate.
 
 ## Phase 2: Local Config Support
 
@@ -117,25 +149,33 @@ Implement `risk-replay.config.json`.
 
 Required:
 
-- [ ] Load config from repo root.
-- [ ] Validate required fields.
-- [ ] Support context include/exclude paths.
-- [ ] Support agent profile fields.
-- [ ] Support adapter config.
-- [ ] Support thresholds.
-- [ ] Support report formats.
-- [ ] Produce useful errors for missing fields.
+- [x] Load config from repo root.
+- [x] Validate required fields.
+- [x] Support context include/exclude paths.
+- [x] Support agent profile fields.
+- [x] Support adapter config.
+- [x] Support thresholds.
+- [x] Support report formats.
+- [x] Produce useful errors for missing fields.
 
 Tests:
 
-- [ ] Valid config loads.
-- [ ] Missing required fields produce actionable errors.
-- [ ] Excluded paths are not read.
-- [ ] Unknown adapter type fails clearly.
+- [x] Valid config loads.
+- [x] Missing required fields produce actionable errors.
+- [x] Excluded paths are not read.
+- [x] Unknown adapter type fails clearly.
 
 Acceptance:
 
-- [ ] A user can define an agent profile without using the UI.
+- [x] A user can define an agent profile without using the UI.
+
+Current progress:
+
+- [x] Added `risk-replay.config.example.json`.
+- [x] Added `risk-replay.config.json` creation through `quainy-risk-replay init`.
+- [x] Added local config loading and validation in `lib/localGate.ts`.
+- [x] Added validation for missing profile arrays, missing tool names, invalid tool severity, invalid adapter settings, and invalid threshold percentages.
+- [x] Added `resolveThresholds` for default and configured release gate thresholds.
 
 ## Phase 3: Conservative Context Discovery
 
@@ -143,32 +183,39 @@ Implement local context discovery.
 
 Sources:
 
-- [ ] `AGENTS.md`
-- [ ] `agents.md`
-- [ ] `README.md`
-- [ ] `docs/agent.md`
+- [x] `AGENTS.md`
+- [x] `agents.md`
+- [x] `README.md`
+- [x] `docs/agent.md`
 - [ ] allowlisted prompt files
 - [ ] allowlisted tool schemas
 - [ ] allowlisted OpenAPI specs
 
 Rules:
 
-- [ ] Never read `.env`.
-- [ ] Never read excluded paths.
-- [ ] Never read broad customer-data folders by default.
-- [ ] Record every file read in an audit log.
-- [ ] Show missing profile fields.
+- [x] Never read `.env`.
+- [x] Never read excluded paths.
+- [x] Never read broad customer-data folders by default.
+- [x] Record every file read in an audit log.
+- [x] Show missing profile fields.
 
 Tests:
 
-- [ ] Include patterns work.
-- [ ] Exclude patterns override include patterns.
-- [ ] Secret-looking files are skipped.
-- [ ] Audit log lists files read.
+- [x] Include patterns work.
+- [x] Exclude patterns override include patterns.
+- [x] Secret-looking files are skipped.
+- [x] Audit log lists files read.
 
 Acceptance:
 
-- [ ] The product can find useful local context without feeling invasive.
+- [x] The product can find useful local context without feeling invasive.
+
+Current progress:
+
+- [x] Added conservative local discovery for `AGENTS.md`, `agents.md`, `README.md`, `docs/agent.md`, and configured include paths.
+- [x] Added hard skips for `.env`, `.git`, `.next`, `node_modules`, `secrets`, `customer-data`, and `logs`.
+- [x] Added context audit output under `risk-replay/reports/context-audit.json`.
+- [x] Added duplicate realpath detection for case-insensitive filesystems.
 
 ## Phase 4: Agent Profile Extraction
 
@@ -176,33 +223,38 @@ Implement deterministic extraction from config and simple docs.
 
 Extract:
 
-- [ ] purpose
-- [ ] target users
-- [ ] data sources
-- [ ] tools/actions
-- [ ] approval boundaries
-- [ ] sensitive data
-- [ ] unsupported topics
-- [ ] grounding requirements
-- [ ] escalation/refusal rules
+- [x] purpose
+- [x] target users
+- [x] data sources
+- [x] tools/actions
+- [x] approval boundaries
+- [x] sensitive data
+- [x] unsupported topics
+- [x] grounding requirements
+- [x] escalation/refusal rules
 
 Rules:
 
-- [ ] Prefer explicit config over inferred docs.
+- [x] Prefer explicit config over inferred docs.
 - [ ] Mark inferred fields as inferred.
-- [ ] Mark missing fields as unknown.
-- [ ] Never invent certainty from vague docs.
+- [x] Mark missing fields as unknown.
+- [x] Never invent certainty from vague docs.
 
 Tests:
 
-- [ ] Config profile extraction.
-- [ ] `AGENTS.md` extraction.
-- [ ] Config overrides docs.
+- [x] Config profile extraction.
+- [x] `AGENTS.md` extraction.
+- [x] Config overrides docs.
 - [ ] Missing fields generate warnings.
 
 Acceptance:
 
-- [ ] A user sees a useful profile draft they can review.
+- [x] A user sees a useful profile draft they can review.
+
+Current progress:
+
+- [x] Added deterministic local inference for purpose, users, tools, data sources, sensitive data, approval boundaries, unsupported topics, grounding requirements, output types, and escalation rules.
+- [x] Explicit config is preserved while inferred profile data fills gaps.
 
 ## Phase 5: Risk Surface Builder
 
@@ -214,24 +266,30 @@ capabilities x tools x data sources x sensitive data x user roles x failure mode
 
 Required:
 
-- [ ] Identify high-risk tools.
-- [ ] Identify sensitive data exposure points.
-- [ ] Identify approval-boundary risks.
-- [ ] Identify grounding risks.
-- [ ] Identify unauthorized access risks.
-- [ ] Identify workflow completion risks.
+- [x] Identify high-risk tools.
+- [x] Identify sensitive data exposure points.
+- [x] Identify approval-boundary risks.
+- [x] Identify grounding risks.
+- [x] Identify unauthorized access risks.
+- [x] Identify workflow completion risks.
 
 Tests:
 
-- [ ] Refund tool creates approval-boundary risk.
-- [ ] Email tool creates external communication risk.
-- [ ] Private notes create sensitive disclosure risk.
-- [ ] Policy docs create grounding risk.
-- [ ] Missing profile fields create unknown coverage items.
+- [x] Refund tool creates approval-boundary risk.
+- [x] Email tool creates external communication risk.
+- [x] Private notes create sensitive disclosure risk.
+- [x] Policy docs create grounding risk.
+- [x] Missing profile fields create unknown coverage items.
 
 Acceptance:
 
-- [ ] Risk surface explains why tests are needed.
+- [x] Risk surface explains why tests are needed.
+
+Current progress:
+
+- [x] Added `buildRiskSurface(config)` with stable IDs, severity, rationale, linked profile fields, expected coverage, and risk signatures.
+- [x] Added risk-surface coverage entries that map generated tests back to the explicit risk surface.
+- [x] Added risk surface summary to JSON/Markdown reports and CLI `profile`/`generate` output.
 
 ## Phase 6: Deterministic Suite Generator
 
@@ -239,41 +297,46 @@ Generate tests from local templates.
 
 Required categories:
 
-- [ ] Instruction Boundary
-- [ ] Grounding And Evidence
-- [ ] Sensitive Data Protection
-- [ ] Tool And Action Safety
-- [ ] Human Approval Boundary
-- [ ] Overconfidence And Uncertainty
-- [ ] Policy And Compliance
-- [ ] Role And Access Control
-- [ ] Reliability Under Bad Inputs
-- [ ] Workflow Completion Quality
+- [x] Instruction Boundary
+- [x] Grounding And Evidence
+- [x] Sensitive Data Protection
+- [x] Tool And Action Safety
+- [x] Human Approval Boundary
+- [x] Overconfidence And Uncertainty
+- [x] Policy And Compliance
+- [x] Role And Access Control
+- [x] Reliability Under Bad Inputs
+- [x] Workflow Completion Quality
 
 Each generated test includes:
 
-- [ ] name
-- [ ] category
-- [ ] severity
-- [ ] user input
-- [ ] untrusted context
-- [ ] expected safe behavior
-- [ ] why this test exists
-- [ ] pass criteria
-- [ ] fail criteria
-- [ ] linked profile fields
+- [x] name
+- [x] category
+- [x] severity
+- [x] user input
+- [x] untrusted context
+- [x] expected safe behavior
+- [x] why this test exists
+- [x] pass criteria
+- [x] fail criteria
+- [x] linked profile fields
 
 Tests:
 
-- [ ] Suite generation is deterministic.
-- [ ] High-risk tools generate high-severity tests.
-- [ ] Grounding requirements generate citation tests.
-- [ ] Sensitive data fields generate leakage tests.
-- [ ] No network calls occur.
+- [x] Suite generation is deterministic.
+- [x] High-risk tools generate high-severity tests.
+- [x] Grounding requirements generate citation tests.
+- [x] Sensitive data fields generate leakage tests.
+- [x] No network calls occur.
 
 Acceptance:
 
-- [ ] Users get useful suites without writing test cases from scratch.
+- [x] Users get useful suites without writing test cases from scratch.
+
+Current progress:
+
+- [x] Added deterministic suite generation for all planned release gate categories.
+- [x] Added per-test rationale, detection target, pass criteria, fail criteria, and linked profile fields.
 
 ## Phase 7: Deduplication And Variant Control
 
@@ -281,22 +344,26 @@ Avoid noisy duplicate suites.
 
 Required:
 
-- [ ] Implement normalized risk signature.
-- [ ] Merge duplicate tests.
-- [ ] Keep the strongest severity when duplicates merge.
+- [x] Implement normalized risk signature.
+- [x] Merge duplicate tests.
+- [x] Keep the strongest severity when duplicates merge.
 - [ ] Limit variants per risk surface item.
-- [ ] Prefer specific agent-relevant tests over generic tests.
+- [x] Prefer specific agent-relevant tests over generic tests.
 
 Tests:
 
-- [ ] Same risk signature dedupes.
+- [x] Same risk signature dedupes.
 - [ ] Different tools do not dedupe incorrectly.
 - [ ] Different sensitive data types do not dedupe incorrectly.
 - [ ] Variant cap is enforced.
 
 Acceptance:
 
-- [ ] Generated suites feel focused, not spammy.
+- [x] Generated suites feel focused, not spammy.
+
+Current progress:
+
+- [x] Added stable risk signatures and deterministic deduplication.
 
 ## Phase 8: Coverage Scoring
 
@@ -304,33 +371,40 @@ Implement coverage reporting.
 
 Dimensions:
 
-- [ ] categories covered
-- [ ] tools covered
-- [ ] data sources covered
-- [ ] sensitive data covered
-- [ ] approval boundaries covered
-- [ ] target users covered
-- [ ] unsupported topics covered
-- [ ] high-severity paths covered
-- [ ] incident regressions covered
+- [x] categories covered
+- [x] tools covered
+- [x] data sources covered
+- [x] sensitive data covered
+- [x] approval boundaries covered
+- [x] target users covered
+- [x] unsupported topics covered
+- [x] high-severity paths covered
+- [x] incident regressions covered
+- [x] risk-surface items covered
 
 Statuses:
 
-- [ ] covered
-- [ ] partially covered
-- [ ] missing
-- [ ] unknown because profile data is missing
+- [x] covered
+- [x] partially covered
+- [x] missing
+- [x] unknown because profile data is missing
 
 Tests:
 
-- [ ] Missing refund approval test lowers coverage.
-- [ ] Missing sensitive data test lowers coverage.
-- [ ] Unknown profile fields appear as unknown.
-- [ ] Coverage score is deterministic.
+- [x] Missing refund approval test lowers coverage.
+- [x] Missing sensitive data test lowers coverage.
+- [x] Unknown profile fields appear as unknown.
+- [x] Coverage score is deterministic.
 
 Acceptance:
 
-- [ ] Users can see what is tested and what remains risky.
+- [x] Users can see what is tested and what remains risky.
+
+Current progress:
+
+- [x] Added category, tool, sensitive-data, approval-boundary, data-source, target-user, high-severity-path, incident-regression, and unsupported-topic coverage scoring.
+- [x] Added direct risk-surface coverage mapping and unknown-profile coverage tests.
+- [x] Added direct generated-test mapping for explicit risk-surface items.
 
 ## Phase 9: Incident-To-Regression Workflow
 
@@ -338,32 +412,38 @@ Implement incident import.
 
 Incident fields:
 
-- [ ] title
-- [ ] user input
-- [ ] retrieved context
-- [ ] actual bad response
-- [ ] expected safe behavior
-- [ ] severity
-- [ ] optional category
+- [x] title
+- [x] user input
+- [x] retrieved context
+- [x] actual bad response
+- [x] expected safe behavior
+- [x] severity
+- [x] optional category
 
 Generated output:
 
-- [ ] exact regression test
-- [ ] nearby variants
-- [ ] linked category
+- [x] exact regression test
+- [x] nearby variants
+- [x] linked category
 - [ ] linked coverage item
-- [ ] report entry
+- [x] report entry
 
 Tests:
 
-- [ ] Sensitive leak incident generates sensitive disclosure suite.
+- [x] Sensitive leak incident generates sensitive disclosure suite.
 - [ ] Tool misuse incident generates approval-boundary variants.
 - [ ] Prompt injection incident generates instruction-boundary variants.
-- [ ] Incident tests are marked as regressions.
+- [x] Incident tests are marked as regressions.
 
 Acceptance:
 
-- [ ] One production failure becomes repeatable protection.
+- [x] One production failure becomes repeatable protection.
+
+Current progress:
+
+- [x] Added `add-incident` CLI command.
+- [x] Added incident template generation.
+- [x] Added incident-to-exact-regression and nearby-variant generation.
 
 ## Phase 10: Replay Adapter Contract
 
@@ -395,22 +475,27 @@ Output:
 
 Adapters:
 
-- [ ] mock
-- [ ] local HTTP
-- [ ] local command
+- [x] mock
+- [x] local HTTP
+- [x] local command
 - [ ] script
 
 Tests:
 
-- [ ] Mock adapter works.
-- [ ] HTTP adapter sends expected payload.
-- [ ] Command adapter passes stdin and parses stdout.
+- [x] Mock adapter works.
+- [x] HTTP adapter sends expected payload.
+- [x] Command adapter passes stdin and parses stdout.
 - [ ] Adapter failures produce useful messages.
-- [ ] No remote Quainy endpoint is called.
+- [x] No remote Quainy endpoint is called.
 
 Acceptance:
 
-- [ ] Teams can test existing agents without sharing implementation.
+- [x] Teams can test existing agents without sharing implementation.
+
+Current progress:
+
+- [x] Added mock, local HTTP, and command adapter implementations.
+- [x] HTTP adapter is restricted to localhost, `127.0.0.1`, or `::1`.
 
 ## Phase 11: Local Evaluators And Scoring
 
@@ -418,37 +503,41 @@ Implement deterministic evaluation.
 
 Evaluators:
 
-- [ ] sensitive pattern leakage
-- [ ] forbidden tool call
-- [ ] approval-boundary violation
-- [ ] citation presence
+- [x] sensitive pattern leakage
+- [x] forbidden tool call
+- [x] approval-boundary violation
+- [x] citation presence
 - [ ] unsupported answer
-- [ ] instruction-boundary violation
-- [ ] overconfidence under missing evidence
+- [x] instruction-boundary violation
+- [x] overconfidence under missing evidence
 - [ ] refusal/escalation behavior
 - [ ] expected structured outcome
 
 Result fields:
 
-- [ ] status
-- [ ] risk score
-- [ ] severity
-- [ ] explanation
-- [ ] suggested fix
-- [ ] evidence snippet
-- [ ] failed criterion
-- [ ] release-blocking flag
+- [x] status
+- [x] risk score
+- [x] severity
+- [x] explanation
+- [x] suggested fix
+- [x] evidence snippet
+- [x] failed criterion
+- [x] release-blocking flag
 
 Tests:
 
-- [ ] Secret-looking value fails sensitive leakage test.
-- [ ] Refund tool call without approval fails.
-- [ ] Missing citation fails grounding test.
+- [x] Secret-looking value fails sensitive leakage test.
+- [x] Refund tool call without approval fails.
+- [x] Missing citation fails grounding test.
 - [ ] Correct refusal passes unsupported-topic test.
 
 Acceptance:
 
-- [ ] Results are actionable without needing remote AI.
+- [x] Results are actionable without needing remote AI.
+
+Current progress:
+
+- [x] Added initial deterministic evaluators for leakage, tool calls, approval boundary, grounding, instruction boundary, and overconfidence checks.
 
 ## Phase 12: Release Readiness Report
 
@@ -456,39 +545,45 @@ Generate reports.
 
 Formats:
 
-- [ ] JSON
-- [ ] Markdown
+- [x] JSON
+- [x] Markdown
 - [ ] UI report
 
 Report includes:
 
-- [ ] total tests
-- [ ] pass rate
-- [ ] reliability score
-- [ ] risk coverage score
-- [ ] release confidence
-- [ ] failed categories
-- [ ] missing coverage
-- [ ] release readiness status
-- [ ] improvement recommendations
+- [x] total tests
+- [x] pass rate
+- [x] reliability score
+- [x] risk coverage score
+- [x] release confidence
+- [x] failed categories
+- [x] missing coverage
+- [x] risk surface summary
+- [x] release readiness status
+- [x] improvement recommendations
 - [ ] audit log summary
 
 Readiness statuses:
 
-- [ ] Ready for limited release
-- [ ] Needs hardening
-- [ ] Do not ship yet
+- [x] Ready for limited release
+- [x] Needs hardening
+- [x] Do not ship yet
 
 Tests:
 
-- [ ] Critical failure blocks release.
-- [ ] Missing high-risk coverage blocks release.
-- [ ] High pass rate with missing approval coverage is not marked ready.
-- [ ] Markdown report renders useful summary.
+- [x] Critical failure blocks release.
+- [x] Missing high-risk coverage blocks release.
+- [x] High pass rate with missing approval coverage is not marked ready.
+- [x] Markdown report renders useful summary.
 
 Acceptance:
 
-- [ ] Users understand whether they should ship and why.
+- [x] Users understand whether they should ship and why.
+
+Current progress:
+
+- [x] Added JSON and Markdown report generation.
+- [x] Added readiness, reliability score, risk coverage score, release confidence, blockers, and recommendations.
 
 ## Phase 13: CLI
 
@@ -496,33 +591,39 @@ Implement CLI commands.
 
 Commands:
 
-- [ ] `init`
-- [ ] `profile`
-- [ ] `generate`
-- [ ] `run`
-- [ ] `report`
-- [ ] `add-incident`
+- [x] `init`
+- [x] `profile`
+- [x] `generate`
+- [x] `run`
+- [x] `report`
+- [x] `add-incident`
 
 Required behavior:
 
-- [ ] Works without browser.
-- [ ] Works without network.
-- [ ] Uses config file.
-- [ ] Writes generated tests.
-- [ ] Writes reports.
-- [ ] Returns non-zero exit code when gate fails.
-- [ ] Prints concise console output.
+- [x] Works without browser.
+- [x] Works without network.
+- [x] Uses config file.
+- [x] Writes generated tests.
+- [x] Writes reports.
+- [x] Returns non-zero exit code when gate fails.
+- [x] Prints concise console output.
 
 Tests:
 
-- [ ] CLI init creates config.
-- [ ] CLI generate creates suite.
-- [ ] CLI run executes mock suite.
-- [ ] CLI run fails when threshold is not met.
+- [x] CLI init creates config.
+- [x] CLI generate creates suite.
+- [x] CLI run executes mock suite.
+- [x] CLI run fails when threshold is not met.
 
 Acceptance:
 
-- [ ] Developers can use Risk Replay locally from terminal.
+- [x] Developers can use Risk Replay locally from terminal.
+
+Current progress:
+
+- [x] Added CLI entrypoint at `cli/index.mjs`.
+- [x] Added `init`, `profile`, `generate`, `run`, `report`, and `add-incident` commands.
+- [x] Added `npm run risk-replay -- ...` script.
 
 ## Phase 14: GitHub Actions Template
 
@@ -530,21 +631,27 @@ Add CI template generation.
 
 Required:
 
-- [ ] `.github/workflows/risk-replay.yml`
-- [ ] install command
+- [x] `.github/workflows/risk-replay.yml`
+- [x] install command
 - [ ] optional local agent startup command
-- [ ] release gate command
-- [ ] report artifact upload
+- [x] release gate command
+- [x] report artifact upload
 
 Tests:
 
-- [ ] Generated workflow is valid YAML.
-- [ ] CI command does not require UI.
-- [ ] Non-zero exit blocks release.
+- [x] Generated workflow is valid YAML.
+- [x] CI command does not require UI.
+- [x] Non-zero exit blocks release.
 
 Acceptance:
 
-- [ ] Users can add Risk Replay to pull requests quickly.
+- [x] Users can add Risk Replay to pull requests quickly.
+
+Current progress:
+
+- [x] Added `github-actions` CLI command.
+- [x] Added `init --github-actions`.
+- [x] Added workflow generation test.
 
 ## Phase 15: UI Upgrade
 
@@ -586,43 +693,50 @@ Add a sample agent for full local demo.
 
 Required:
 
-- [ ] sample HTTP agent
-- [ ] sample command agent
-- [ ] seeded config
+- [x] sample HTTP agent
+- [x] sample command agent
+- [x] seeded config
 - [ ] generated suite
 - [ ] expected failing report
 - [ ] fixed passing report
 
 Tests:
 
-- [ ] Demo agent starts locally.
-- [ ] Risk Replay can run against it.
-- [ ] Report shows meaningful failures.
+- [x] Demo agent starts locally.
+- [x] Risk Replay can run against it.
+- [x] Report shows meaningful failures.
 
 Acceptance:
 
-- [ ] A GitHub visitor can experience the full product without their own agent.
+- [x] A GitHub visitor can experience the full product without their own agent.
+
+Current progress:
+
+- [x] Added `examples/sample-agent/command-agent.mjs`.
+- [x] Added `examples/sample-agent/http-agent.mjs`.
+- [x] Added command and HTTP sample configs.
+- [x] Added sample agent README.
 
 ## Phase 17: Documentation And Repo Polish
 
 Required docs:
 
-- [ ] README quickstart
-- [ ] security model
-- [ ] CLI guide
+- [x] README quickstart
+- [x] security model
+- [x] CLI guide
 - [ ] config reference
 - [ ] adapter guide
-- [ ] GitHub Actions guide
-- [ ] incident workflow guide
-- [ ] suite generation explanation
-- [ ] report interpretation guide
+- [x] GitHub Actions guide
+- [x] incident workflow guide
+- [x] suite generation explanation
+- [x] report interpretation guide
 
 Repo quality:
 
-- [ ] `.gitignore` covers local artifacts.
-- [ ] examples are committed.
-- [ ] reports generated by tests are ignored unless intentionally included.
-- [ ] no secrets in sample data.
+- [x] `.gitignore` covers local artifacts.
+- [x] examples are committed.
+- [x] reports generated by tests are ignored unless intentionally included.
+- [x] no secrets in sample data.
 
 Acceptance:
 
@@ -632,14 +746,15 @@ Acceptance:
 
 Before marking any phase complete:
 
-- [ ] `npm run typecheck`
-- [ ] `npm run build`
-- [ ] relevant unit tests pass
-- [ ] relevant CLI flow works
-- [ ] docs updated
-- [ ] no unexpected network dependency
-- [ ] security model still local-first
-- [ ] user value is clearer than before
+- [x] `npm run typecheck`
+- [x] `npm run build`
+- [x] `npm test`
+- [x] relevant unit tests pass
+- [x] relevant CLI flow works
+- [x] docs updated
+- [x] no unexpected network dependency
+- [x] security model still local-first
+- [x] user value is clearer than before
 
 ## Final Definition Of Done
 

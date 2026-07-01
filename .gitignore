@@ -32,3 +32,8 @@ tsconfig.tsbuildinfo
 
 # vercel
 .vercel
+
+# risk replay local outputs
+risk-replay/reports
+risk-replay/tests/generated-suite.json
+risk-replay/incidents/incident-template.json

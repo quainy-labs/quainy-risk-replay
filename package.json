@@ -3,11 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "description": "An open-source replay lab for testing AI workflow risk before release.",
+  "type": "module",
+  "bin": {
+    "quainy-risk-replay": "./cli/index.mjs"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "risk-replay": "node cli/index.mjs",
+    "sample:http-agent": "node examples/sample-agent/http-agent.mjs",
+    "sample:command-agent": "node examples/sample-agent/command-agent.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

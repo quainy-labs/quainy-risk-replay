@@ -11,6 +11,7 @@ This repository currently contains the first working showcase app:
 - Next.js dashboard at `/`
 - local JSON-backed projects and test cases
 - starter test suites for common LLM risks
+- explicit local risk surface map for agent-specific tools, data, users, approvals, and sensitive data
 - deterministic mock replay runner
 - pass/fail scoring, risk score, explanation, and suggested fix
 - release report page at `/report`
@@ -47,18 +48,20 @@ npm install
 npm run dev
 ```
 
-Future CLI flow:
+Local CLI flow:
 
 ```bash
-quainy-risk-replay init
-quainy-risk-replay generate
-quainy-risk-replay run --config risk-replay.config.json
-quainy-risk-replay report
+npm run risk-replay -- init
+npm run risk-replay -- profile
+npm run risk-replay -- generate
+npm run risk-replay -- run
+npm run risk-replay -- report
 ```
 
 Expected result:
 
 - local agent profile
+- risk surface map
 - generated test suite
 - coverage map
 - replay results
@@ -104,15 +107,26 @@ Example config:
 
 ## Agent Context Sources
 
-Risk Replay should start from existing local context when available, then ask only for missing details.
+Risk Replay starts from existing local context when available, then uses explicit config as the source of truth. It then builds a risk surface before generating tests, so every suite item can be traced back to a specific tool, data source, approval boundary, sensitive data type, user role, unsupported topic, or general workflow failure mode.
 
-Planned sources:
+Current local discovery sources:
 
 - `risk-replay.config.json`
 - `AGENTS.md`
 - `agents.md`
 - `README.md`
 - `docs/agent.md`
+
+The config supports allowlisted include/exclude paths. Discovery skips obvious private/build locations such as `.env`, `.git`, `.next`, `node_modules`, `secrets`, `customer-data`, and `logs`.
+
+Every profile/generation/run writes a local audit file:
+
+```text
+risk-replay/reports/context-audit.json
+```
+
+Planned next sources:
+
 - selected prompt files
 - selected tool schemas
 - selected OpenAPI specs
@@ -154,16 +168,31 @@ Planned pipeline:
 
 Each generated test should include why it exists, what failure it detects, pass criteria, fail criteria, severity, and linked profile fields.
 
+## Risk Surface Mapping
+
+The local gate now builds a structured risk surface before scoring coverage. Each item includes:
+
+- category
+- dimension
+- name
+- severity
+- reason
+- linked profile fields
+- expected coverage
+- stable risk signature
+
+Reports include the risk surface alongside generated coverage, so users can see both the risks Risk Replay found and whether generated tests directly map to those risks.
+
 ## Incident-To-Regression Workflow
 
 When a team sees a production failure, they should be able to convert it into a regression suite quickly.
 
-Future CLI:
+Current CLI:
 
 ```bash
-quainy-risk-replay add-incident incident.json
-quainy-risk-replay generate --from-incident
-quainy-risk-replay run
+npm run risk-replay -- add-incident incident.json
+npm run risk-replay -- generate --from-incident
+npm run risk-replay -- run
 ```
 
 One incident should produce:
@@ -178,7 +207,19 @@ One incident should produce:
 
 Risk Replay should be usable as a CI release gate.
 
-Future workflow:
+Generate a workflow:
+
+```bash
+npm run risk-replay -- github-actions
+```
+
+Or during setup:
+
+```bash
+npm run risk-replay -- init --github-actions
+```
+
+Current generated workflow:
 
 ```yaml
 name: AI Release Gate
@@ -215,7 +256,35 @@ jobs:
           path: risk-replay/reports/*
 ```
 
-The CLI should exit non-zero when critical failures or required coverage gaps block release.
+The CLI exits non-zero when the release gate says `Do not ship yet`.
+
+The release gate also blocks when critical coverage is missing, even if the tests that did run passed. Approval boundaries, sensitive-data paths, and high-severity tool/action paths are treated as release-blocking coverage dimensions.
+
+## Sample Local Agent
+
+This repo includes a local demo agent in `examples/sample-agent`.
+
+Run the command adapter demo:
+
+```bash
+npm run risk-replay -- generate --config examples/sample-agent/risk-replay.command.config.json
+npm run risk-replay -- run --config examples/sample-agent/risk-replay.command.config.json
+```
+
+Run the HTTP adapter demo:
+
+```bash
+npm run sample:http-agent
+```
+
+Then in another terminal:
+
+```bash
+npm run risk-replay -- generate --config examples/sample-agent/risk-replay.http.config.json
+npm run risk-replay -- run --config examples/sample-agent/risk-replay.http.config.json
+```
+
+The default sample agent is intentionally unsafe, so the release gate should block shipping.
 
 ## Current App Setup
 
@@ -231,8 +300,56 @@ Useful checks:
 ```bash
 npm run typecheck
 npm run build
+npm test
 npm audit --omit=dev
 ```
+
+## Current CLI Setup
+
+Initialize a local Risk Replay workspace in any agent repo:
+
+```bash
+npm run risk-replay -- init
+```
+
+This creates:
+
+```text
+risk-replay.config.json
+risk-replay/tests/
+risk-replay/incidents/
+risk-replay/reports/
+```
+
+Generate a deterministic local suite:
+
+```bash
+npm run risk-replay -- generate
+```
+
+Risk Replay reads allowlisted local context, merges inferred fields with explicit config, builds a structured risk surface, deduplicates tests by risk signature, and writes the generated suite to:
+
+```text
+risk-replay/tests/generated-suite.json
+```
+
+Coverage currently includes categories, tools, data sources, sensitive data, approval boundaries, target users, high-severity paths, unsupported topics, risk-surface mapping, and incident regressions when incidents are present.
+
+Run the release gate:
+
+```bash
+npm run risk-replay -- run
+```
+
+Reports are written to:
+
+```text
+risk-replay/reports/latest.json
+risk-replay/reports/latest.md
+```
+
+The checked-in example config lives at `risk-replay.config.example.json`.
+Sample adapter configs live under `examples/sample-agent`.
 
 ## Current Tech Stack
 
@@ -240,6 +357,10 @@ npm audit --omit=dev
 - TypeScript
 - local JSON storage in `data/projects.json`
 - deterministic mock replay adapter in `lib/mockRunner.ts`
+- local-first release gate engine in `lib/localGate.ts`
+- CLI entrypoint in `cli/index.mjs`
+- Node built-in tests in `tests/localGate.test.mjs`
+- sample local agents in `examples/sample-agent`
 - plain CSS using Quainy brand tokens
 
 ## Current Pages
