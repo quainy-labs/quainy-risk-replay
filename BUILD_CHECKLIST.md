@@ -75,11 +75,11 @@ The exact folders can change, but the separation should remain.
 | 0. Align current showcase | Complete | README, plan, checklist, dashboard, typecheck, and build are in place. |
 | 1. Domain model foundation | Complete | Shared local gate models, threshold model, risk surface model, and dashboard-test adapter are in place. |
 | 2. Local config support | Complete | Config load/create/validate, schema errors, thresholds, report formats, and tests are in place. |
-| 3. Conservative context discovery | In progress | Safe local discovery and audit exist; prompt/tool/OpenAPI source support remains. |
-| 4. Agent profile extraction | In progress | Deterministic inference exists; UI review and richer missing-field handling remain. |
+| 3. Conservative context discovery | Complete | Safe local discovery, prompt files, tool schemas, OpenAPI specs, source classification, and audit output are in place. |
+| 4. Agent profile extraction | Complete | Deterministic inference, provenance review, inferred-field markers, and missing-field warnings are in place. |
 | 5. Risk surface builder | Complete | Explicit risk surface object, report output, CLI summary, mapped coverage, and tests are in place for the current local gate. |
-| 6. Deterministic suite generator | In progress | All planned categories generate tests; more templates and variant caps needed. |
-| 7. Deduplication and variant control | In progress | Stable signatures and dedupe exist; variant caps need expansion. |
+| 6. Deterministic suite generator | Complete | All categories generate base tests plus capped, risk-surface-linked hard variants. |
+| 7. Deduplication and variant control | Complete | Stable signatures, strongest-severity dedupe, distinct risk preservation, and variant caps are implemented and tested. |
 | 8. Coverage scoring | Complete | Category, profile-field, high-severity, risk-surface, unknown, and incident coverage are implemented and tested. |
 | 9. Incident-to-regression | In progress | CLI template/import and exact/variant tests exist; UI and richer categorization remain. |
 | 10. Replay adapters | In progress | Mock, local HTTP, and command exist; script adapter and stronger adapter tests remain. |
@@ -187,9 +187,9 @@ Sources:
 - [x] `agents.md`
 - [x] `README.md`
 - [x] `docs/agent.md`
-- [ ] allowlisted prompt files
-- [ ] allowlisted tool schemas
-- [ ] allowlisted OpenAPI specs
+- [x] allowlisted prompt files
+- [x] allowlisted tool schemas
+- [x] allowlisted OpenAPI specs
 
 Rules:
 
@@ -216,6 +216,8 @@ Current progress:
 - [x] Added hard skips for `.env`, `.git`, `.next`, `node_modules`, `secrets`, `customer-data`, and `logs`.
 - [x] Added context audit output under `risk-replay/reports/context-audit.json`.
 - [x] Added duplicate realpath detection for case-insensitive filesystems.
+- [x] Added default conventional discovery for `prompts/`, `prompt/`, `tool-schemas/`, `schemas/tools/`, and `openapi` files.
+- [x] Added source-type classification in context discovery and audit output.
 
 ## Phase 4: Agent Profile Extraction
 
@@ -236,7 +238,7 @@ Extract:
 Rules:
 
 - [x] Prefer explicit config over inferred docs.
-- [ ] Mark inferred fields as inferred.
+- [x] Mark inferred fields as inferred.
 - [x] Mark missing fields as unknown.
 - [x] Never invent certainty from vague docs.
 
@@ -245,7 +247,7 @@ Tests:
 - [x] Config profile extraction.
 - [x] `AGENTS.md` extraction.
 - [x] Config overrides docs.
-- [ ] Missing fields generate warnings.
+- [x] Missing fields generate warnings.
 
 Acceptance:
 
@@ -255,6 +257,9 @@ Current progress:
 
 - [x] Added deterministic local inference for purpose, users, tools, data sources, sensitive data, approval boundaries, unsupported topics, grounding requirements, output types, and escalation rules.
 - [x] Explicit config is preserved while inferred profile data fills gaps.
+- [x] Added profile review metadata for `explicit`, `inferred`, `mixed`, and `unknown` fields.
+- [x] Added actionable profile warnings for missing fields that reduce suite relevance.
+- [x] Added CLI profile source and warning output.
 
 ## Phase 5: Risk Surface Builder
 
@@ -337,6 +342,8 @@ Current progress:
 
 - [x] Added deterministic suite generation for all planned release gate categories.
 - [x] Added per-test rationale, detection target, pass criteria, fail criteria, and linked profile fields.
+- [x] Added capped high-risk variants linked to `variantOf` risk-surface signatures.
+- [x] Added `--max-variants` CLI control for deterministic suite depth.
 
 ## Phase 7: Deduplication And Variant Control
 
@@ -347,15 +354,15 @@ Required:
 - [x] Implement normalized risk signature.
 - [x] Merge duplicate tests.
 - [x] Keep the strongest severity when duplicates merge.
-- [ ] Limit variants per risk surface item.
+- [x] Limit variants per risk surface item.
 - [x] Prefer specific agent-relevant tests over generic tests.
 
 Tests:
 
 - [x] Same risk signature dedupes.
-- [ ] Different tools do not dedupe incorrectly.
-- [ ] Different sensitive data types do not dedupe incorrectly.
-- [ ] Variant cap is enforced.
+- [x] Different tools do not dedupe incorrectly.
+- [x] Different sensitive data types do not dedupe incorrectly.
+- [x] Variant cap is enforced.
 
 Acceptance:
 
@@ -364,6 +371,8 @@ Acceptance:
 Current progress:
 
 - [x] Added stable risk signatures and deterministic deduplication.
+- [x] Added capped variant generation per risk surface item.
+- [x] Added regression tests for distinct tool and sensitive-data signatures.
 
 ## Phase 8: Coverage Scoring
 

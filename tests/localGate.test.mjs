@@ -8,6 +8,7 @@ import path from "node:path";
 import {
   adaptDashboardTestCase,
   buildCoverage,
+  buildProfileReview,
   buildReport,
   buildRiskSurface,
   createDefaultConfig,
@@ -49,6 +50,40 @@ test("discovers only allowlisted local context and skips excluded files", async 
   assert.equal(inferred.requiredGrounding?.length, 2);
 });
 
+test("default discovery includes conventional prompt tool schema and openapi files", async () => {
+  const rootDir = await tempDir();
+  await fs.mkdir(path.join(rootDir, "prompts"), { recursive: true });
+  await fs.mkdir(path.join(rootDir, "tool-schemas"), { recursive: true });
+  await fs.writeFile(path.join(rootDir, "prompts", "support.prompt.md"), [
+    "Purpose: Answer support tickets using policy docs.",
+    "Never reveal private notes or API keys."
+  ].join("\n"));
+  await fs.writeFile(path.join(rootDir, "tool-schemas", "refund.schema.json"), JSON.stringify({
+    name: "refund.create",
+    description: "Create a refund and require approval."
+  }));
+  await fs.writeFile(path.join(rootDir, "openapi.yaml"), [
+    "openapi: 3.1.0",
+    "paths:",
+    "  /refunds:",
+    "    post:",
+    "      operationId: refund.create"
+  ].join("\n"));
+
+  const discovery = await discoverContext(rootDir);
+  const paths = discovery.files.map((file) => file.path);
+  const inferred = inferProfileFromContext(discovery);
+
+  assert.equal(paths.includes("prompts/support.prompt.md"), true);
+  assert.equal(paths.includes("tool-schemas/refund.schema.json"), true);
+  assert.equal(paths.includes("openapi.yaml"), true);
+  assert.equal(discovery.files.some((file) => file.path === "prompts/support.prompt.md" && file.sourceType === "prompt"), true);
+  assert.equal(discovery.files.some((file) => file.path === "tool-schemas/refund.schema.json" && file.sourceType === "tool-schema"), true);
+  assert.equal(discovery.files.some((file) => file.path === "openapi.yaml" && file.sourceType === "openapi"), true);
+  assert.equal(inferred.tools?.some((tool) => tool.name === "refund.create"), true);
+  assert.equal(inferred.sensitiveData?.includes("API keys"), true);
+});
+
 test("init creates config from discovered AGENTS.md without uploading anything", async () => {
   const rootDir = await tempDir();
   await fs.writeFile(path.join(rootDir, "AGENTS.md"), [
@@ -80,6 +115,33 @@ test("suite generation is deterministic and coverage recognizes generated tests"
   assert.equal(coverage.every((item) => item.status === "covered"), true);
   assert.equal(coverage.some((item) => item.dimension === "target-user"), true);
   assert.equal(coverage.some((item) => item.dimension === "high-severity-path"), true);
+});
+
+test("suite generation creates capped risk-surface variants", () => {
+  const config = createDefaultConfig();
+  const withoutVariants = generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 0 });
+  const oneVariant = generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 1 });
+  const twoVariants = generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 2 });
+  const oneVariantCounts = countBy(oneVariant.filter((item) => item.variantOf).map((item) => item.variantOf));
+  const twoVariantCounts = countBy(twoVariants.filter((item) => item.variantOf).map((item) => item.variantOf));
+
+  assert.equal(withoutVariants.some((item) => item.variantOf), false);
+  assert.equal(oneVariant.some((item) => item.variantOf), true);
+  assert.equal(Math.max(...oneVariantCounts.values()), 1);
+  assert.equal(Math.max(...twoVariantCounts.values()) <= 2, true);
+  assert.equal(twoVariants.length > oneVariant.length, true);
+});
+
+test("dedupe keeps distinct tools and sensitive data types", () => {
+  const config = createDefaultConfig();
+  const tests = generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 0 });
+
+  assert.equal(tests.some((item) => item.riskSignature.includes("tool:refund-create")), true);
+  assert.equal(tests.some((item) => item.riskSignature.includes("tool:email-send")), true);
+  assert.equal(tests.some((item) => item.riskSignature.includes("tool:ticket-close")), true);
+  assert.equal(tests.some((item) => item.riskSignature.includes("sensitive:customer-email")), true);
+  assert.equal(tests.some((item) => item.riskSignature.includes("sensitive:private-ticket-notes")), true);
+  assert.equal(tests.some((item) => item.riskSignature.includes("sensitive:api-keys")), true);
 });
 
 test("profile validation returns actionable config errors", () => {
@@ -348,6 +410,7 @@ test("writes context audit with files read and skip decisions", async () => {
   const audit = JSON.parse(await fs.readFile(auditPath, "utf8"));
 
   assert.equal(audit.filesRead.length, 1);
+  assert.equal(audit.filesRead[0].sourceType, "agent-doc");
   assert.equal(audit.audit.some((entry) => entry.status === "excluded"), true);
 });
 
@@ -371,6 +434,56 @@ test("explicit config is preserved while inferred profile fills gaps", async () 
   assert.equal(merged.agent.targetUsers.includes("internal reviewers"), true);
   assert.equal(merged.agent.tools.some((tool) => tool.name === "refund.create"), true);
   assert.equal(merged.agent.dataSources.includes("policy docs"), true);
+});
+
+test("profile review marks inferred and mixed fields for review", async () => {
+  const rootDir = await tempDir();
+  await fs.writeFile(path.join(rootDir, "AGENTS.md"), [
+    "Purpose: Help customers with refunds.",
+    "The agent can call refund.create and email.send.",
+    "It reads policy docs and support tickets.",
+    "Customer email may appear in context."
+  ].join("\n"));
+  const base = {
+    ...createDefaultConfig(),
+    agent: {
+      ...createDefaultConfig().agent,
+      targetUsers: ["internal reviewers"],
+      dataSources: [],
+      tools: [],
+      sensitiveData: []
+    }
+  };
+
+  const discovery = await discoverContext(rootDir, base);
+  const inferred = inferProfileFromContext(discovery);
+  const review = buildProfileReview(base, inferred);
+
+  assert.equal(review.fields.find((field) => field.field === "dataSources")?.source, "inferred");
+  assert.equal(review.fields.find((field) => field.field === "tools")?.source, "inferred");
+  assert.equal(review.fields.find((field) => field.field === "targetUsers")?.source, "mixed");
+  assert.equal(review.inferredFields.includes("tools"), true);
+});
+
+test("missing profile fields generate review warnings", () => {
+  const config = {
+    ...createDefaultConfig(),
+    agent: {
+      ...createDefaultConfig().agent,
+      targetUsers: [],
+      dataSources: [],
+      tools: [],
+      approvalBoundaries: [],
+      sensitiveData: [],
+      requiredGrounding: []
+    }
+  };
+  const review = buildProfileReview(config, {});
+
+  assert.equal(review.unknownFields.includes("targetUsers"), true);
+  assert.equal(review.unknownFields.includes("tools"), true);
+  assert.equal(review.warnings.some((warning) => warning.field === "targetUsers" && warning.suggestedAction.includes("user roles")), true);
+  assert.equal(review.warnings.some((warning) => warning.field === "sensitiveData" && warning.severity === "warning"), true);
 });
 
 test("profile extraction ignores file-like dotted names as tools", async () => {
@@ -453,4 +566,12 @@ function readRequestBody(request) {
     request.on("end", () => resolve(body));
     request.on("error", reject);
   });
+}
+
+function countBy(items) {
+  const counts = new Map();
+  for (const item of items.filter(Boolean)) {
+    counts.set(item, (counts.get(item) ?? 0) + 1);
+  }
+  return counts;
 }

@@ -116,6 +116,12 @@ Current local discovery sources:
 - `agents.md`
 - `README.md`
 - `docs/agent.md`
+- `prompts/*.md`, `prompts/*.txt`, `prompts/*.prompt`, `prompts/*.prompt.md`
+- `prompt/*.md`, `prompt/*.txt`
+- `tool-schemas/*.json`, `tool-schemas/*.schema.json`
+- `tools/*.schema.json`, `schemas/tools/*.json`
+- `openapi.json`, `openapi.yaml`, `openapi.yml`
+- `docs/openapi.json`, `docs/openapi.yaml`, `docs/openapi.yml`
 
 The config supports allowlisted include/exclude paths. Discovery skips obvious private/build locations such as `.env`, `.git`, `.next`, `node_modules`, `secrets`, `customer-data`, and `logs`.
 
@@ -125,15 +131,20 @@ Every profile/generation/run writes a local audit file:
 risk-replay/reports/context-audit.json
 ```
 
-Planned next sources:
-
-- selected prompt files
-- selected tool schemas
-- selected OpenAPI specs
-- incident JSON files
-- guided UI intake
+The audit records each file path, source type, byte size, and read/skip/exclude decision. Incident JSON files and guided UI intake remain later workflow additions.
 
 The user should always be able to see what was detected and confirm what becomes part of the profile.
+
+## Profile Review
+
+The profile command shows where each profile field came from:
+
+- `explicit`: provided in `risk-replay.config.json`
+- `inferred`: detected from allowlisted local context
+- `mixed`: explicit config plus inferred additions
+- `unknown`: missing from config and not detected locally
+
+Missing high-value fields such as tools, data sources, approval boundaries, sensitive data, target users, and grounding requirements produce profile warnings with suggested fixes.
 
 ## Release Gate Categories
 
@@ -161,12 +172,13 @@ Planned pipeline:
 3. Build a risk surface across tools, data, users, actions, and failure modes.
 4. Generate tests from local templates.
 5. Add high-risk variants.
-6. Deduplicate by risk signature.
-7. Score coverage.
-8. Warn about missing or unknown coverage.
-9. Save suites locally.
+6. Cap high-risk variants per risk surface item.
+7. Deduplicate by risk signature.
+8. Score coverage.
+9. Warn about missing or unknown coverage.
+10. Save suites locally.
 
-Each generated test should include why it exists, what failure it detects, pass criteria, fail criteria, severity, and linked profile fields.
+Each generated test includes why it exists, what failure it detects, pass criteria, fail criteria, severity, linked profile fields, and `variantOf` when it is a harder variant of a risk-surface item.
 
 ## Risk Surface Mapping
 
@@ -325,6 +337,13 @@ Generate a deterministic local suite:
 
 ```bash
 npm run risk-replay -- generate
+```
+
+Control hard variant depth:
+
+```bash
+npm run risk-replay -- generate --max-variants 0
+npm run risk-replay -- generate --max-variants 2
 ```
 
 Risk Replay reads allowlisted local context, merges inferred fields with explicit config, builds a structured risk surface, deduplicates tests by risk signature, and writes the generated suite to:

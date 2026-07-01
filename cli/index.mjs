@@ -4,6 +4,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import {
   buildCoverage,
+  buildProfileReview,
   buildReport,
   buildRiskSurface,
   discoverContext,
@@ -87,7 +88,7 @@ async function initCommand() {
 }
 
 async function profileCommand() {
-  const { config, discovery, inferred } = await loadEffectiveConfig();
+  const { config, discovery, inferred, review } = await loadEffectiveConfig();
   await writeContextAudit(rootDir, discovery);
   const riskSurface = buildRiskSurface(config);
   const coverage = buildCoverage(config, [], riskSurface);
@@ -105,6 +106,13 @@ async function profileCommand() {
   console.log(`Context files read: ${discovery.audit.filter((entry) => entry.status === "read").length}`);
   console.log("Context audit: risk-replay/reports/context-audit.json");
 
+  if (review.fields.length) {
+    console.log("\nProfile sources:");
+    for (const field of review.fields.filter((item) => item.source !== "unknown")) {
+      console.log(`- ${field.field}: ${field.source}`);
+    }
+  }
+
   if (Object.keys(inferred).some((key) => Array.isArray(inferred[key]) ? inferred[key].length : Boolean(inferred[key]))) {
     console.log("\nInferred local context:");
     if (inferred.purpose) console.log(`- purpose: ${inferred.purpose}`);
@@ -120,13 +128,20 @@ async function profileCommand() {
       console.log(`- ${item.reason}`);
     }
   }
+
+  if (review.warnings.length) {
+    console.log("\nProfile warnings:");
+    for (const warning of review.warnings) {
+      console.log(`- ${warning.field}: ${warning.message} ${warning.suggestedAction}`);
+    }
+  }
 }
 
 async function generateCommand() {
   const { config, discovery } = await loadEffectiveConfig();
   await writeContextAudit(rootDir, discovery);
   const incidents = args.includes("--from-incident") ? await readIncidents(rootDir) : [];
-  const tests = generateSuite(config, incidents);
+  const tests = generateSuite(config, incidents, getSuiteGenerationOptions());
   const suitePath = await writeSuite(rootDir, tests);
   const riskSurface = buildRiskSurface(config);
   const coverage = buildCoverage(config, tests, riskSurface);
@@ -157,7 +172,7 @@ async function runCommand() {
     tests = await readSuite(rootDir);
   } catch {
     const incidents = await readIncidents(rootDir);
-    tests = generateSuite(config, incidents);
+    tests = generateSuite(config, incidents, getSuiteGenerationOptions());
     await writeSuite(rootDir, tests);
   }
 
@@ -230,7 +245,7 @@ Local-first AI agent release gate.
 Usage:
   quainy-risk-replay init
   quainy-risk-replay profile
-  quainy-risk-replay generate [--from-incident]
+  quainy-risk-replay generate [--from-incident] [--max-variants 1]
   quainy-risk-replay run [--config risk-replay.config.json]
   quainy-risk-replay report
   quainy-risk-replay add-incident [incident.json]
@@ -300,14 +315,27 @@ async function loadEffectiveConfig() {
   const rawConfig = await loadConfig(rootDir, configPath);
   const discovery = await discoverContext(rootDir, rawConfig);
   const inferred = inferProfileFromContext(discovery);
+  const review = buildProfileReview(rawConfig, inferred);
   const config = mergeConfigWithInferredProfile(rawConfig, inferred);
-  return { config, discovery, inferred };
+  return { config, discovery, inferred, review };
 }
 
 function getOption(name) {
   const index = args.indexOf(name);
   if (index === -1) return undefined;
   return args[index + 1];
+}
+
+function getSuiteGenerationOptions() {
+  const rawMaxVariants = getOption("--max-variants");
+  if (rawMaxVariants === undefined) return {};
+
+  const maxVariantsPerRiskSurfaceItem = Number(rawMaxVariants);
+  if (!Number.isInteger(maxVariantsPerRiskSurfaceItem) || maxVariantsPerRiskSurfaceItem < 0) {
+    throw new Error("--max-variants must be a non-negative integer.");
+  }
+
+  return { maxVariantsPerRiskSurfaceItem };
 }
 
 function relative(filePath) {
