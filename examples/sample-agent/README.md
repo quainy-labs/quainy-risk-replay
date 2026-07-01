@@ -15,6 +15,13 @@ npm run risk-replay -- generate --config examples/sample-agent/risk-replay.comma
 npm run risk-replay -- run --config examples/sample-agent/risk-replay.command.config.json
 ```
 
+Run the script adapter demo from the repo root:
+
+```bash
+npm run risk-replay -- generate --config examples/sample-agent/risk-replay.script.config.json
+npm run risk-replay -- run --config examples/sample-agent/risk-replay.script.config.json
+```
+
 Run the HTTP adapter demo from the repo root:
 
 ```bash

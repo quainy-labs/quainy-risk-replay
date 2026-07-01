@@ -81,8 +81,8 @@ The exact folders can change, but the separation should remain.
 | 6. Deterministic suite generator | Complete | All categories generate base tests plus capped, risk-surface-linked hard variants. |
 | 7. Deduplication and variant control | Complete | Stable signatures, strongest-severity dedupe, distinct risk preservation, and variant caps are implemented and tested. |
 | 8. Coverage scoring | Complete | Category, profile-field, high-severity, risk-surface, unknown, and incident coverage are implemented and tested. |
-| 9. Incident-to-regression | In progress | CLI template/import and exact/variant tests exist; UI and richer categorization remain. |
-| 10. Replay adapters | In progress | Mock, local HTTP, and command exist; script adapter and stronger adapter tests remain. |
+| 9. Incident-to-regression | Complete | CLI template/import, exact tests, category-specific variants, linked coverage items, and tests are in place. |
+| 10. Replay adapters | Complete | Mock, local HTTP, command, and script adapters are implemented with failure-message tests. |
 | 11. Local evaluators | In progress | Initial deterministic checks exist; more category-specific evaluators remain. |
 | 12. Reports | In progress | JSON/Markdown reports and critical coverage gates exist; UI report and audit summary integration remain. |
 | 13. CLI | In progress | Core commands exist and smoke-test locally; packaged distribution remains. |
@@ -434,14 +434,14 @@ Generated output:
 - [x] exact regression test
 - [x] nearby variants
 - [x] linked category
-- [ ] linked coverage item
+- [x] linked coverage item
 - [x] report entry
 
 Tests:
 
 - [x] Sensitive leak incident generates sensitive disclosure suite.
-- [ ] Tool misuse incident generates approval-boundary variants.
-- [ ] Prompt injection incident generates instruction-boundary variants.
+- [x] Tool misuse incident generates approval-boundary variants.
+- [x] Prompt injection incident generates instruction-boundary variants.
 - [x] Incident tests are marked as regressions.
 
 Acceptance:
@@ -453,6 +453,9 @@ Current progress:
 - [x] Added `add-incident` CLI command.
 - [x] Added incident template generation.
 - [x] Added incident-to-exact-regression and nearby-variant generation.
+- [x] Added per-incident coverage items keyed by incident title.
+- [x] Added approval-boundary variants for tool/action misuse incidents.
+- [x] Added instruction-boundary variants for prompt injection incidents.
 
 ## Phase 10: Replay Adapter Contract
 
@@ -487,14 +490,14 @@ Adapters:
 - [x] mock
 - [x] local HTTP
 - [x] local command
-- [ ] script
+- [x] script
 
 Tests:
 
 - [x] Mock adapter works.
 - [x] HTTP adapter sends expected payload.
 - [x] Command adapter passes stdin and parses stdout.
-- [ ] Adapter failures produce useful messages.
+- [x] Adapter failures produce useful messages.
 - [x] No remote Quainy endpoint is called.
 
 Acceptance:
@@ -505,6 +508,8 @@ Current progress:
 
 - [x] Added mock, local HTTP, and command adapter implementations.
 - [x] HTTP adapter is restricted to localhost, `127.0.0.1`, or `::1`.
+- [x] Added local script adapter that runs a Node script without shell parsing.
+- [x] Added adapter failure messages for command and script execution errors.
 
 ## Phase 11: Local Evaluators And Scoring
 

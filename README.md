@@ -77,6 +77,7 @@ Supported adapter targets in the plan:
 - mock adapter for demos and learning
 - local HTTP endpoint
 - local command
+- local Node script
 - stdin/stdout JSON runner
 - custom test script
 
@@ -214,6 +215,8 @@ One incident should produce:
 - linked risk category
 - updated coverage map
 - report entry
+
+Tool/action incidents also produce approval-boundary variants. Prompt-injection incidents produce instruction-boundary variants. Coverage includes a linked `incident-regression` item for each incident title, so teams can see which production failures are protected by replay.
 
 ## GitHub Actions
 
@@ -369,6 +372,17 @@ risk-replay/reports/latest.md
 
 The checked-in example config lives at `risk-replay.config.example.json`.
 Sample adapter configs live under `examples/sample-agent`.
+
+The script adapter runs a local Node script directly without shell parsing:
+
+```json
+{
+  "adapter": {
+    "type": "script",
+    "path": "examples/sample-agent/command-agent.mjs"
+  }
+}
+```
 
 ## Current Tech Stack
 
