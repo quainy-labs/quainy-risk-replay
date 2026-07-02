@@ -40,7 +40,7 @@ The default sample agent is unsafe, so the release gate should say `Do not ship 
 To try the safer behavior:
 
 ```bash
-SAMPLE_AGENT_SAFE=1 node examples/sample-agent/command-agent.mjs
+SAMPLE_AGENT_SAFE=1 npm run risk-replay -- run --config examples/sample-agent/risk-replay.command.config.json
 ```
 
 For HTTP mode:
@@ -48,3 +48,13 @@ For HTTP mode:
 ```bash
 SAMPLE_AGENT_SAFE=1 npm run sample:http-agent
 ```
+
+## Checked-in Demo Fixtures
+
+The `fixtures/` folder contains small summaries from the local demo flow:
+
+- `generated-suite.summary.json` shows the generated categories, count, and representative tests.
+- `failing-report.summary.json` shows the unsafe agent being blocked with a 14% pass rate.
+- `passing-report.summary.json` shows the safer agent reaching `Ready for limited release`.
+
+The full generated suite and reports are still created locally under `risk-replay/` when you run the commands above.

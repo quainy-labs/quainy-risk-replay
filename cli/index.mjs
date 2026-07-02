@@ -25,6 +25,7 @@ import {
 const rootDir = process.cwd();
 const [command, ...args] = process.argv.slice(2);
 const configPath = getOption("--config") ?? "risk-replay.config.json";
+const cliVersion = "0.1.0";
 
 main().catch((error) => {
   console.error(`\nRisk Replay failed: ${error.message}`);
@@ -59,6 +60,10 @@ async function main() {
     case undefined:
       printHelp();
       return;
+    case "--version":
+    case "-v":
+      console.log(cliVersion);
+      return;
     default:
       throw new Error(`Unknown command: ${command}. Run quainy-risk-replay --help.`);
   }
@@ -82,7 +87,7 @@ async function initCommand() {
   }
 
   if (args.includes("--github-actions")) {
-    const workflowPath = await writeGitHubActionsWorkflow(rootDir);
+    const workflowPath = await writeGitHubActionsWorkflow(rootDir, getGitHubActionsOptions());
     console.log(`GitHub Actions workflow: ${relative(workflowPath)}`);
   }
 }
@@ -177,7 +182,7 @@ async function runCommand() {
   }
 
   const results = await runSuite(config, tests);
-  const report = buildReport(config, tests, results);
+  const report = buildReport(config, tests, results, discovery);
   const paths = await writeReports(rootDir, report);
 
   console.log(`${report.readiness}`);
@@ -233,7 +238,7 @@ async function addIncidentCommand(sourcePath) {
 }
 
 async function githubActionsCommand() {
-  const workflowPath = await writeGitHubActionsWorkflow(rootDir);
+  const workflowPath = await writeGitHubActionsWorkflow(rootDir, getGitHubActionsOptions());
   console.log(`GitHub Actions workflow created: ${relative(workflowPath)}`);
 }
 
@@ -249,7 +254,8 @@ Usage:
   quainy-risk-replay run [--config risk-replay.config.json]
   quainy-risk-replay report
   quainy-risk-replay add-incident [incident.json]
-  quainy-risk-replay github-actions
+  quainy-risk-replay github-actions [--agent-start "npm run agent:test-server"] [--npx]
+  quainy-risk-replay --version
 
 Core workflow:
   quainy-risk-replay init
@@ -261,15 +267,23 @@ CI setup:
 `);
 }
 
-async function writeGitHubActionsWorkflow(rootDir) {
+async function writeGitHubActionsWorkflow(rootDir, options = {}) {
   const workflowDir = path.join(rootDir, ".github", "workflows");
   const workflowPath = path.join(workflowDir, "risk-replay.yml");
   await fs.mkdir(workflowDir, { recursive: true });
-  await fs.writeFile(workflowPath, riskReplayWorkflowYaml());
+  await fs.writeFile(workflowPath, riskReplayWorkflowYaml(options));
   return workflowPath;
 }
 
-function riskReplayWorkflowYaml() {
+function riskReplayWorkflowYaml(options = {}) {
+  const commandPrefix = options.useNpx ? "npx quainy-risk-replay" : "npm run risk-replay --";
+  const installStep = options.useNpx
+    ? "      - name: Install project dependencies\n        run: npm ci"
+    : "      - name: Install dependencies\n        run: npm ci";
+  const agentStep = options.agentStartCommand
+    ? `\n      - name: Start local agent\n        run: ${options.agentStartCommand} &\n`
+    : "";
+
   return `name: AI Release Gate
 
 on:
@@ -291,14 +305,14 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+${installStep}
+${agentStep}
 
       - name: Generate local risk suite
-        run: npm run risk-replay -- generate
+        run: ${commandPrefix} generate
 
       - name: Run local release gate
-        run: npm run risk-replay -- run
+        run: ${commandPrefix} run
 
       - name: Upload Risk Replay reports
         if: always()
@@ -309,6 +323,13 @@ jobs:
             risk-replay/reports/*
             risk-replay/tests/generated-suite.json
 `;
+}
+
+function getGitHubActionsOptions() {
+  return {
+    agentStartCommand: getOption("--agent-start"),
+    useNpx: args.includes("--npx")
+  };
 }
 
 async function loadEffectiveConfig() {

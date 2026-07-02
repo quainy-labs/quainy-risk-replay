@@ -72,14 +72,12 @@ Expected result:
 
 Teams should not need to expose their repository or agent internals. Risk Replay should call the agent from the user's local environment.
 
-Supported adapter targets in the plan:
+Supported adapter targets today:
 
 - mock adapter for demos and learning
 - local HTTP endpoint
 - local command
 - local Node script
-- stdin/stdout JSON runner
-- custom test script
 
 Example config:
 
@@ -88,11 +86,28 @@ Example config:
   "project": "Support Refund Agent",
   "agent": {
     "purpose": "Answer customer support questions and prepare refunds",
+    "targetUsers": ["support agents", "customers"],
     "dataSources": ["Zendesk tickets", "refund policy docs"],
-    "tools": ["refund.create", "email.send", "ticket.close"],
+    "tools": [
+      {
+        "name": "refund.create",
+        "description": "Create a refund",
+        "requiresApproval": true,
+        "riskLevel": "critical"
+      },
+      {
+        "name": "email.send",
+        "description": "Send a customer email",
+        "requiresApproval": true,
+        "riskLevel": "high"
+      }
+    ],
     "approvalBoundaries": ["refund.create", "email.send", "ticket.close"],
     "sensitiveData": ["customer email", "private ticket notes", "API keys"],
-    "requiredGrounding": ["policy answers require citations"]
+    "unsupportedTopics": ["legal advice", "medical advice"],
+    "requiredGrounding": ["policy answers require citations"],
+    "outputTypes": ["customer answer", "tool action proposal"],
+    "escalationRules": ["Escalate refunds and outbound emails to a human reviewer."]
   },
   "adapter": {
     "type": "http",
@@ -105,6 +120,86 @@ Example config:
   }
 }
 ```
+
+## Config Reference
+
+`risk-replay.config.json` is the local source of truth. The CLI can create a starter file with:
+
+```bash
+npm run risk-replay -- init
+```
+
+Top-level fields:
+
+- `project`: human-readable project or agent name.
+- `context.include`: allowlisted files or glob-like paths Risk Replay may read.
+- `context.exclude`: paths that override includes and defaults.
+- `agent`: profile fields used to build the risk surface and generated suite.
+- `adapter`: how replay calls the local agent.
+- `thresholds.blockOnCritical`: blocks release when critical failures or critical coverage gaps exist.
+- `thresholds.minimumPassRate`: minimum pass rate for release readiness.
+- `thresholds.minimumCoverage`: minimum risk coverage score for release readiness.
+- `report.formats`: local report formats, currently `json` and `markdown`.
+
+Agent profile fields:
+
+- `purpose`: what the agent is supposed to do.
+- `targetUsers`: user roles or audiences.
+- `dataSources`: docs, databases, retrieved context, tools, or stores the agent relies on.
+- `tools`: objects with `name`, optional `description`, `requiresApproval`, and `riskLevel`.
+- `approvalBoundaries`: actions that require human approval or trusted application authorization.
+- `sensitiveData`: data types the agent must not expose.
+- `unsupportedTopics`: topics the agent should refuse, redirect, or escalate.
+- `requiredGrounding`: source, citation, or evidence requirements.
+- `outputTypes`: expected response or artifact types.
+- `escalationRules`: when to ask a human, stop, or hand off.
+
+## Adapter Guide
+
+Adapters let Risk Replay test an existing agent without uploading the repo or agent code.
+
+Mock adapter:
+
+```json
+{ "adapter": { "type": "mock" } }
+```
+
+Use it for learning, UI demos, and deterministic local checks before connecting a real target.
+
+HTTP adapter:
+
+```json
+{ "adapter": { "type": "http", "url": "http://127.0.0.1:8787/agent" } }
+```
+
+The endpoint must be local. Risk Replay posts each generated test case and expects a JSON response with fields such as `response`, optional `toolCalls`, optional `citations`, and optional `metadata`.
+
+Command adapter:
+
+```json
+{
+  "adapter": {
+    "type": "command",
+    "command": "node examples/sample-agent/command-agent.mjs"
+  }
+}
+```
+
+The command receives one replay payload on stdin and writes one JSON response to stdout. Use this when your agent already has a local test runner or CLI entrypoint.
+
+Script adapter:
+
+```json
+{
+  "adapter": {
+    "type": "script",
+    "path": "examples/sample-agent/command-agent.mjs",
+    "args": []
+  }
+}
+```
+
+The script adapter runs a local Node script directly without shell parsing. It is the simplest choice when building a small dedicated replay bridge.
 
 ## Agent Context Sources
 
@@ -161,6 +256,10 @@ The release gate focuses on practical agent failure modes:
 - role and access control
 - reliability under bad inputs
 - workflow completion quality
+
+## Local Evaluators
+
+Risk Replay uses deterministic local evaluators for v1. They check for secret-like leakage, forbidden tool calls, approval-boundary violations, missing citations, prompt-injection obedience, unsupported-topic advice, missing refusal/escalation behavior, overconfidence under uncertainty, and structured metadata that marks blocked workflows as complete.
 
 ## Suite Generation
 
@@ -234,6 +333,18 @@ Or during setup:
 npm run risk-replay -- init --github-actions
 ```
 
+Add a local agent startup command:
+
+```bash
+npm run risk-replay -- github-actions --agent-start "npm run sample:http-agent"
+```
+
+Generate a package-style workflow that calls the CLI through `npx`:
+
+```bash
+npm run risk-replay -- github-actions --npx
+```
+
 Current generated workflow:
 
 ```yaml
@@ -252,7 +363,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
         run: npm ci
@@ -301,6 +412,19 @@ npm run risk-replay -- run --config examples/sample-agent/risk-replay.http.confi
 
 The default sample agent is intentionally unsafe, so the release gate should block shipping.
 
+Run the fixed version:
+
+```bash
+SAMPLE_AGENT_SAFE=1 npm run risk-replay -- run --config examples/sample-agent/risk-replay.command.config.json
+```
+
+Expected local demo outcomes:
+
+- unsafe mode: `Do not ship yet`, 14% pass rate, critical failures across injection, grounding, leakage, tool use, approval, policy, and access control
+- safer mode: `Ready for limited release`, 100% pass rate, 100% risk coverage
+
+Checked-in fixture summaries live in `examples/sample-agent/fixtures` so the demo can be reviewed from GitHub before running it locally.
+
 ## Current App Setup
 
 ```bash
@@ -316,6 +440,7 @@ Useful checks:
 npm run typecheck
 npm run build
 npm test
+npm pack --dry-run
 npm audit --omit=dev
 ```
 
@@ -370,8 +495,12 @@ risk-replay/reports/latest.json
 risk-replay/reports/latest.md
 ```
 
+Reports include pass/fail results, release readiness, risk-surface coverage, recommendations, blocking failures, and a context audit summary showing files read, skipped, excluded, missing, bytes read, and source types.
+
 The checked-in example config lives at `risk-replay.config.example.json`.
 Sample adapter configs live under `examples/sample-agent`.
+
+The package exposes a CLI bin named `quainy-risk-replay` and is configured for Node 22 or newer. Local development can use `npm run risk-replay -- ...`; packaged usage can call `quainy-risk-replay ...`.
 
 The script adapter runs a local Node script directly without shell parsing:
 

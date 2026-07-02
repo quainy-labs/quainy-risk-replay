@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   Database,
   FilePlus2,
+  GitBranch,
   Play,
   Plus,
   RefreshCw,
-  ShieldAlert
+  ShieldAlert,
+  ShieldCheck
 } from "lucide-react";
 import {
   riskCategories,
@@ -38,9 +41,50 @@ const emptyTest: NewTestCaseInput = {
   severity: "high"
 };
 
+type LocalGatePreview = {
+  project: string;
+  profile: {
+    purpose: string;
+    targetUsers: string[];
+    dataSources: string[];
+    tools: Array<{ name: string; riskLevel?: string; requiresApproval?: boolean }>;
+    approvalBoundaries: string[];
+    sensitiveData: string[];
+    unsupportedTopics: string[];
+    requiredGrounding: string[];
+  };
+  review: {
+    fields: Array<{ field: string; source: string; finalValues: string[]; message: string }>;
+    warnings: Array<{ field: string; message: string; suggestedAction: string }>;
+  };
+  context: {
+    filesRead: Array<{ path: string; sourceType: string; bytes: number }>;
+  };
+  riskSurface: Array<{ id: string; category: string; name: string; severity: string; reason: string }>;
+  tests: Array<{ id: string; name: string; category: string; severity: string; why: string; detects: string; variantOf?: string }>;
+  coverage: Array<{ dimension: string; name: string; status: string; reason: string }>;
+  report: {
+    readiness: string;
+    totalTests: number;
+    passRate: number;
+    riskCoverageScore: number;
+    releaseConfidence: number;
+    recommendations: string[];
+    auditSummary: { filesRead: number; filesSkipped: number; filesExcluded: number; filesMissing: number };
+  };
+  results: Array<{ testId: string; status: string; category: string; riskScore: number; explanation: string; suggestedFix: string }>;
+};
+
+function coverageStatusClass(status: string) {
+  if (status === "covered") return "pass";
+  if (status === "partially-covered") return "warn";
+  return "fail";
+}
+
 export function Dashboard() {
   const [workspace, setWorkspace] = useState<Workspace>({ projects: [] });
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [localGate, setLocalGate] = useState<LocalGatePreview | null>(null);
   const [projectForm, setProjectForm] = useState(emptyProject);
   const [testForm, setTestForm] = useState(emptyTest);
   const [isBusy, setIsBusy] = useState(false);
@@ -65,6 +109,7 @@ export function Dashboard() {
 
   useEffect(() => {
     void loadWorkspace();
+    void loadLocalGate();
   }, []);
 
   useEffect(() => {
@@ -77,6 +122,13 @@ export function Dashboard() {
     const response = await fetch("/api/projects", { cache: "no-store" });
     const data = (await response.json()) as Workspace;
     setWorkspace(data);
+  }
+
+  async function loadLocalGate() {
+    const response = await fetch("/api/local-gate", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = (await response.json()) as LocalGatePreview;
+    setLocalGate(data);
   }
 
   async function withRefresh(action: () => Promise<void>, success: string) {
@@ -275,6 +327,8 @@ export function Dashboard() {
               <Metric label="Readiness" value={report.readiness} />
             </div>
 
+            {localGate ? <LocalGateWorkspace preview={localGate} /> : null}
+
             <section className="split-workspace">
               <form className="test-form" onSubmit={addTest}>
                 <div className="panel-heading">
@@ -456,5 +510,154 @@ function Metric({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <strong>{value}</strong>
     </article>
+  );
+}
+
+function LocalGateWorkspace({ preview }: { preview: LocalGatePreview }) {
+  const missingCoverage = preview.coverage.filter((item) => item.status === "missing" || item.status === "unknown");
+  const criticalRisks = preview.riskSurface.filter((item) => item.severity === "critical").length;
+  const variants = preview.tests.filter((test) => test.variantOf).length;
+
+  return (
+    <section className="local-gate-workspace">
+      <div className="local-gate-header">
+        <div>
+          <p className="eyebrow">Local release gate</p>
+          <h2>{preview.project}</h2>
+          <p>{preview.profile.purpose}</p>
+        </div>
+        <span className={preview.report.readiness === "Do not ship yet" ? "readiness-badge fail" : "readiness-badge pass"}>
+          {preview.report.readiness}
+        </span>
+      </div>
+
+      <div className="metric-grid compact">
+        <Metric label="Generated tests" value={preview.report.totalTests.toString()} />
+        <Metric label="Pass rate" value={`${preview.report.passRate}%`} />
+        <Metric label="Coverage" value={`${preview.report.riskCoverageScore}%`} />
+        <Metric label="Confidence" value={preview.report.releaseConfidence.toString()} />
+      </div>
+
+      <div className="gate-panel-grid">
+        <article className="gate-panel">
+          <div className="panel-heading">
+            <p className="eyebrow">Agent profile review</p>
+            <ShieldCheck size={18} />
+          </div>
+          <div className="compact-list">
+            {preview.review.fields.slice(0, 7).map((field) => (
+              <div key={field.field}>
+                <strong>{field.field}</strong>
+                <span>{field.source}</span>
+              </div>
+            ))}
+          </div>
+          {preview.review.warnings.length ? (
+            <p className="gate-note">{preview.review.warnings[0].message}</p>
+          ) : null}
+        </article>
+
+        <article className="gate-panel">
+          <div className="panel-heading">
+            <p className="eyebrow">Context discovery</p>
+            <Database size={18} />
+          </div>
+          <div className="compact-list">
+            {preview.context.filesRead.slice(0, 5).map((file) => (
+              <div key={file.path}>
+                <strong>{file.path}</strong>
+                <span>{file.sourceType}</span>
+              </div>
+            ))}
+          </div>
+          <p className="gate-note">
+            {preview.report.auditSummary.filesRead} read, {preview.report.auditSummary.filesExcluded} excluded, {preview.report.auditSummary.filesMissing} missing.
+          </p>
+        </article>
+
+        <article className="gate-panel">
+          <div className="panel-heading">
+            <p className="eyebrow">Risk surface</p>
+            <AlertTriangle size={18} />
+          </div>
+          <div className="tag-row">
+            <span>{preview.riskSurface.length} mapped</span>
+            <span>{criticalRisks} critical</span>
+            <span>{missingCoverage.length} gaps</span>
+          </div>
+          <ul className="gate-list">
+            {preview.riskSurface.slice(0, 4).map((risk) => (
+              <li key={risk.id}>{risk.name}: {risk.reason}</li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="gate-panel">
+          <div className="panel-heading">
+            <p className="eyebrow">Generated suite</p>
+            <GitBranch size={18} />
+          </div>
+          <div className="tag-row">
+            <span>{preview.tests.length} tests</span>
+            <span>{variants} variants</span>
+          </div>
+          <ul className="gate-list">
+            {preview.tests.slice(0, 4).map((test) => (
+              <li key={test.id}>{test.name}: {test.why}</li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="gate-panel">
+          <div className="panel-heading">
+            <p className="eyebrow">Coverage map</p>
+            <ShieldAlert size={18} />
+          </div>
+          <div className="coverage-map">
+            {preview.coverage.slice(0, 6).map((coverage) => (
+              <div key={`${coverage.dimension}-${coverage.name}`}>
+                <span className={coverageStatusClass(coverage.status)}>{coverage.status}</span>
+                <strong>{coverage.name}</strong>
+                <small>{coverage.dimension}</small>
+              </div>
+            ))}
+          </div>
+          <p className="gate-note">
+            {missingCoverage.length ? `${missingCoverage.length} gaps need review before release.` : "No missing local coverage in the generated suite."}
+          </p>
+        </article>
+      </div>
+
+      <section className="gate-panel wide">
+        <div className="panel-heading">
+          <p className="eyebrow">Replay run and release report</p>
+          <Play size={18} />
+        </div>
+        <div className="result-strip">
+          {preview.results.slice(0, 5).map((result) => (
+            <article key={result.testId}>
+              <strong className={result.status === "pass" ? "pass" : "fail"}>{result.status}</strong>
+              <span>{result.category}</span>
+              <p>{result.explanation}</p>
+            </article>
+          ))}
+        </div>
+        <ul className="recommendation-list compact-recommendations">
+          {preview.report.recommendations.slice(0, 3).map((recommendation) => (
+            <li key={recommendation}>{recommendation}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="gate-panel wide">
+        <div className="panel-heading">
+          <p className="eyebrow">Incident intake</p>
+          <FilePlus2 size={18} />
+        </div>
+        <p className="gate-note">
+          Production failures can be added locally with <code>npm run risk-replay -- add-incident</code>, then converted into exact and variant regression tests with <code>generate --from-incident</code>.
+        </p>
+      </section>
+    </section>
   );
 }

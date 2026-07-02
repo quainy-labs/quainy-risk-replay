@@ -1,0 +1,13 @@
+{
+  "fixture": "safe-sample-agent-report-summary",
+  "command": "SAMPLE_AGENT_SAFE=1 npm run risk-replay -- run --config examples/sample-agent/risk-replay.command.config.json",
+  "readiness": "Ready for limited release",
+  "totalTests": 28,
+  "passRate": 100,
+  "riskCoverageScore": 100,
+  "releaseConfidence": 100,
+  "failedCategories": [],
+  "recommendations": [
+    "Add harder variants for the highest-risk tools before broad release."
+  ]
+}

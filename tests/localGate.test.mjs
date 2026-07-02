@@ -18,6 +18,7 @@ import {
   initRiskReplay,
   mergeConfigWithInferredProfile,
   resolveThresholds,
+  renderMarkdownReport,
   runSuite,
   validateConfig,
   writeContextAudit
@@ -382,6 +383,103 @@ test("mock run produces a blocking report for unsafe simulated behavior", async 
   assert.equal(report.riskCoverageScore, 100);
 });
 
+test("release report includes context audit summary", async () => {
+  const rootDir = await tempDir();
+  await fs.mkdir(path.join(rootDir, "prompts"), { recursive: true });
+  await fs.writeFile(path.join(rootDir, "AGENTS.md"), "# Agent\nPurpose: Support refunds.");
+  await fs.writeFile(path.join(rootDir, "prompts", "support.prompt.md"), "Never reveal API keys.");
+  const config = createDefaultConfig();
+  const discovery = await discoverContext(rootDir, config);
+  const tests = generateSuite(config).slice(0, 2);
+  const results = tests.map((item) => ({
+    testId: item.id,
+    status: "pass",
+    riskScore: 0,
+    severity: item.severity,
+    category: item.category,
+    explanation: "Synthetic pass.",
+    suggestedFix: "No fix.",
+    evidenceSnippet: "safe",
+    releaseBlocking: false,
+    response: {
+      response: "safe",
+      toolCalls: [],
+      citations: []
+    }
+  }));
+  const report = buildReport(config, tests, results, discovery);
+  const markdown = renderMarkdownReport(report);
+
+  assert.equal(report.auditSummary.filesRead, 2);
+  assert.equal(report.auditSummary.sourceTypes["agent-doc"], 1);
+  assert.equal(report.auditSummary.sourceTypes.prompt, 1);
+  assert.match(markdown, /## Context Audit Summary/);
+  assert.match(markdown, /Files read: 2/);
+});
+
+test("unsupported answer fails policy compliance evaluator", async () => {
+  const config = createDefaultConfig();
+  const tests = generateSuite(config).filter((item) => item.category === "policy-compliance").slice(0, 1);
+  const results = await runSuite(config, tests);
+
+  assert.equal(results[0].status, "fail");
+  assert.match(results[0].explanation, /unsupported advice|does not refuse or escalate/);
+});
+
+test("correct refusal passes unsupported-topic test", async () => {
+  const rootDir = await tempDir();
+  const scriptPath = path.join(rootDir, "safe-policy-agent.mjs");
+  await fs.writeFile(scriptPath, [
+    "process.stdin.resume();",
+    "process.stdin.on('end', () => {",
+    "  console.log(JSON.stringify({",
+    "    response: 'I cannot provide unsupported advice. I can offer safe general information or escalate this to a human reviewer.',",
+    "    toolCalls: [],",
+    "    citations: []",
+    "  }));",
+    "});"
+  ].join("\n"));
+  const config = {
+    ...createDefaultConfig(),
+    adapter: {
+      type: "script",
+      path: scriptPath
+    }
+  };
+  const tests = generateSuite(config).filter((item) => item.category === "policy-compliance").slice(0, 1);
+  const results = await runSuite(config, tests);
+
+  assert.equal(results[0].status, "pass");
+});
+
+test("structured complete outcome fails blocked workflow expectation", async () => {
+  const rootDir = await tempDir();
+  const scriptPath = path.join(rootDir, "complete-workflow-agent.mjs");
+  await fs.writeFile(scriptPath, [
+    "process.stdin.resume();",
+    "process.stdin.on('end', () => {",
+    "  console.log(JSON.stringify({",
+    "    response: 'I checked the workflow and it is done.',",
+    "    toolCalls: [],",
+    "    citations: [],",
+    "    metadata: { status: 'complete' }",
+    "  }));",
+    "});"
+  ].join("\n"));
+  const config = {
+    ...createDefaultConfig(),
+    adapter: {
+      type: "script",
+      path: scriptPath
+    }
+  };
+  const tests = generateSuite(config).filter((item) => item.category === "workflow-quality").slice(0, 1);
+  const results = await runSuite(config, tests);
+
+  assert.equal(results[0].status, "fail");
+  assert.match(results[0].explanation, /metadata marks an unsafe or blocked workflow as complete/);
+});
+
 test("http adapter is restricted to local endpoints", async () => {
   const config = {
     ...createDefaultConfig(),
@@ -624,6 +722,58 @@ test("CLI can generate GitHub Actions workflow", async () => {
   assert.match(workflow, /name: AI Release Gate/);
   assert.match(workflow, /npm run risk-replay -- generate/);
   assert.match(workflow, /risk-replay\/reports\/\*/);
+});
+
+test("CLI can generate npx GitHub Actions workflow with local agent startup", async () => {
+  const rootDir = await tempDir();
+  const cliPath = path.resolve("cli/index.mjs");
+  const result = spawnSync(process.execPath, [
+    cliPath,
+    "github-actions",
+    "--npx",
+    "--agent-start",
+    "npm run sample:http-agent"
+  ], {
+    cwd: rootDir,
+    encoding: "utf8"
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+
+  const workflow = await fs.readFile(path.join(rootDir, ".github", "workflows", "risk-replay.yml"), "utf8");
+  assert.match(workflow, /run: npm run sample:http-agent &/);
+  assert.match(workflow, /run: npx quainy-risk-replay generate/);
+  assert.match(workflow, /run: npx quainy-risk-replay run/);
+});
+
+test("CLI exposes package version", () => {
+  const cliPath = path.resolve("cli/index.mjs");
+  const result = spawnSync(process.execPath, [cliPath, "--version"], {
+    encoding: "utf8"
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "0.1.0");
+});
+
+test("npm package dry-run includes CLI and local gate files", () => {
+  const result = spawnSync("npm", ["pack", "--dry-run", "--json"], {
+    cwd: path.resolve("."),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      npm_config_cache: path.join(os.tmpdir(), "qrr-npm-cache")
+    }
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const [pack] = JSON.parse(result.stdout);
+  const files = pack.files.map((file) => file.path);
+
+  assert.equal(files.includes("cli/index.mjs"), true);
+  assert.equal(files.includes("lib/localGate.ts"), true);
+  assert.equal(files.includes("examples/sample-agent/risk-replay.script.config.json"), true);
+  assert.equal(files.includes("README.md"), true);
 });
 
 async function tempDir() {

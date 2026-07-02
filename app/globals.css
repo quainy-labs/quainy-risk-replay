@@ -336,6 +336,10 @@ select:focus {
   margin: 16px 0;
 }
 
+.metric-grid.compact {
+  margin: 12px 0 0;
+}
+
 .metric-card {
   display: grid;
   gap: 8px;
@@ -359,6 +363,202 @@ select:focus {
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+}
+
+.local-gate-workspace {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0;
+}
+
+.local-gate-header {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding: 18px;
+}
+
+.local-gate-header h2 {
+  font-size: clamp(1.35rem, 2.2vw, 2rem);
+  margin: 0;
+}
+
+.local-gate-header p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 8px 0 0;
+  max-width: 760px;
+}
+
+.readiness-badge {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  flex: 0 0 auto;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 10px 12px;
+  text-transform: uppercase;
+}
+
+.gate-panel-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.gate-panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.gate-panel.wide {
+  overflow: hidden;
+}
+
+.compact-list {
+  display: grid;
+  gap: 8px;
+}
+
+.compact-list div {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-width: 0;
+  padding-top: 8px;
+}
+
+.compact-list strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.compact-list span {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.gate-note {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.gate-note code {
+  background: #eef4ef;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--graphite);
+  padding: 2px 5px;
+}
+
+.gate-list {
+  color: var(--muted);
+  display: grid;
+  gap: 7px;
+  line-height: 1.45;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.result-strip {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.result-strip article {
+  background: #fbfdfb;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.result-strip strong {
+  border-radius: 999px;
+  display: inline-flex;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  justify-self: start;
+  padding: 4px 8px;
+  text-transform: uppercase;
+}
+
+.result-strip span {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.result-strip p {
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.compact-recommendations {
+  display: grid;
+  gap: 4px;
+}
+
+.coverage-map {
+  display: grid;
+  gap: 8px;
+}
+
+.coverage-map div {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 8px;
+}
+
+.coverage-map span {
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  justify-self: start;
+  padding: 3px 7px;
+  text-transform: uppercase;
+}
+
+.coverage-map .warn {
+  background: #fff4d8;
+  border-color: #e3b94d;
+  color: #775700;
+}
+
+.coverage-map strong,
+.coverage-map small {
+  overflow-wrap: anywhere;
+}
+
+.coverage-map small {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
 }
 
 .form-row {
@@ -654,7 +854,9 @@ select:focus {
   }
 
   .metric-grid,
-  .example-list {
+  .example-list,
+  .gate-panel-grid,
+  .result-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -662,6 +864,7 @@ select:focus {
 @media (max-width: 760px) {
   .topbar,
   .workspace-header,
+  .local-gate-header,
   .report-header,
   .panel-heading {
     align-items: flex-start;
@@ -681,6 +884,8 @@ select:focus {
   .report-band,
   .case-grid,
   .example-list,
+  .gate-panel-grid,
+  .result-strip,
   .form-row {
     grid-template-columns: 1fr;
   }

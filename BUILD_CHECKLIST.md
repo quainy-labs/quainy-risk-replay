@@ -83,13 +83,13 @@ The exact folders can change, but the separation should remain.
 | 8. Coverage scoring | Complete | Category, profile-field, high-severity, risk-surface, unknown, and incident coverage are implemented and tested. |
 | 9. Incident-to-regression | Complete | CLI template/import, exact tests, category-specific variants, linked coverage items, and tests are in place. |
 | 10. Replay adapters | Complete | Mock, local HTTP, command, and script adapters are implemented with failure-message tests. |
-| 11. Local evaluators | In progress | Initial deterministic checks exist; more category-specific evaluators remain. |
-| 12. Reports | In progress | JSON/Markdown reports and critical coverage gates exist; UI report and audit summary integration remain. |
-| 13. CLI | In progress | Core commands exist and smoke-test locally; packaged distribution remains. |
-| 14. GitHub Actions | In progress | CLI workflow generation exists; published package/npx variant still needed. |
-| 15. UI upgrade | Not started | UI still uses earlier mock dashboard model. |
-| 16. Sample local agent | In progress | Command and HTTP demo agents exist; fixed passing report fixture still needed. |
-| 17. Documentation polish | In progress | README and plan are updated; full CLI/config/adapter guides remain. |
+| 11. Local evaluators | Complete | Deterministic evaluators cover leakage, grounding, tool/approval safety, policy refusal, escalation, and structured outcome checks. |
+| 12. Reports | Complete | JSON, Markdown, UI report page, readiness scoring, recommendations, and context audit summary are in place. |
+| 13. CLI | Complete | Core commands, version output, package metadata, bin config, and npm pack dry-run are tested. |
+| 14. GitHub Actions | Complete | Workflow generation supports local npm scripts, npx/package mode, optional agent startup, and artifact upload. |
+| 15. UI upgrade | Implemented, visual QA pending | Dashboard now surfaces local gate project/profile/context/risk/suite/coverage/replay/report/incident panels; browser visual QA still needs Playwright or in-app browser access. |
+| 16. Sample local agent | Complete | Command, script, and HTTP demos plus generated-suite, failing-report, and passing-report fixture summaries are in place. |
+| 17. Documentation polish | Complete | README now covers quickstart, security, config, adapters, GitHub Actions, incidents, generation, reports, and sample demo fixtures. |
 | 18. Quality gate | Complete | `npm test`, `typecheck`, `build`, `audit`, and relevant CLI profile/generate smoke pass for current slice. |
 
 ## Phase 0: Align Current Showcase With Product Direction
@@ -521,11 +521,11 @@ Evaluators:
 - [x] forbidden tool call
 - [x] approval-boundary violation
 - [x] citation presence
-- [ ] unsupported answer
+- [x] unsupported answer
 - [x] instruction-boundary violation
 - [x] overconfidence under missing evidence
-- [ ] refusal/escalation behavior
-- [ ] expected structured outcome
+- [x] refusal/escalation behavior
+- [x] expected structured outcome
 
 Result fields:
 
@@ -543,7 +543,7 @@ Tests:
 - [x] Secret-looking value fails sensitive leakage test.
 - [x] Refund tool call without approval fails.
 - [x] Missing citation fails grounding test.
-- [ ] Correct refusal passes unsupported-topic test.
+- [x] Correct refusal passes unsupported-topic test.
 
 Acceptance:
 
@@ -552,6 +552,8 @@ Acceptance:
 Current progress:
 
 - [x] Added initial deterministic evaluators for leakage, tool calls, approval boundary, grounding, instruction boundary, and overconfidence checks.
+- [x] Added policy-compliance unsupported-answer and refusal/escalation evaluators.
+- [x] Added structured outcome metadata evaluator for blocked workflow expectations.
 
 ## Phase 12: Release Readiness Report
 
@@ -561,7 +563,7 @@ Formats:
 
 - [x] JSON
 - [x] Markdown
-- [ ] UI report
+- [x] UI report
 
 Report includes:
 
@@ -575,7 +577,7 @@ Report includes:
 - [x] risk surface summary
 - [x] release readiness status
 - [x] improvement recommendations
-- [ ] audit log summary
+- [x] audit log summary
 
 Readiness statuses:
 
@@ -598,6 +600,8 @@ Current progress:
 
 - [x] Added JSON and Markdown report generation.
 - [x] Added readiness, reliability score, risk coverage score, release confidence, blockers, and recommendations.
+- [x] Added context audit summary to JSON and Markdown reports.
+- [x] Existing `/report` page provides the current UI report surface.
 
 ## Phase 13: CLI
 
@@ -638,6 +642,7 @@ Current progress:
 - [x] Added CLI entrypoint at `cli/index.mjs`.
 - [x] Added `init`, `profile`, `generate`, `run`, `report`, and `add-incident` commands.
 - [x] Added `npm run risk-replay -- ...` script.
+- [x] Added package-ready metadata, CLI `--version`, bin entry, Node engine, and npm pack dry-run test.
 
 ## Phase 14: GitHub Actions Template
 
@@ -647,7 +652,7 @@ Required:
 
 - [x] `.github/workflows/risk-replay.yml`
 - [x] install command
-- [ ] optional local agent startup command
+- [x] optional local agent startup command
 - [x] release gate command
 - [x] report artifact upload
 
@@ -666,6 +671,8 @@ Current progress:
 - [x] Added `github-actions` CLI command.
 - [x] Added `init --github-actions`.
 - [x] Added workflow generation test.
+- [x] Added `--agent-start` for local test-server startup.
+- [x] Added `--npx` package-style workflow variant.
 
 ## Phase 15: UI Upgrade
 
@@ -673,22 +680,22 @@ Upgrade current UI around the new core engine.
 
 Screens:
 
-- [ ] project dashboard
-- [ ] agent profile review
-- [ ] context discovery review
-- [ ] generated suite review
-- [ ] coverage map
-- [ ] incident intake
-- [ ] replay run view
-- [ ] release report
+- [x] project dashboard
+- [x] agent profile review
+- [x] context discovery review
+- [x] generated suite review
+- [x] coverage map
+- [x] incident intake
+- [x] replay run view
+- [x] release report
 
 UX rules:
 
-- [ ] First screen remains working product.
-- [ ] No blank-page test design as default.
-- [ ] Every generated test explains why it exists.
-- [ ] Missing coverage is visible.
-- [ ] Security model is visible but not noisy.
+- [x] First screen remains working product.
+- [x] No blank-page test design as default.
+- [x] Every generated test explains why it exists.
+- [x] Missing coverage is visible.
+- [x] Security model is visible but not noisy.
 
 Tests:
 
@@ -696,10 +703,21 @@ Tests:
 - [ ] Main workflows work on mobile.
 - [ ] Text does not overflow controls.
 - [ ] Dashboard works with empty, partial, and complete profiles.
+- [x] Local dashboard route returns 200.
+- [x] Local gate API route returns 200 and structured release-gate data.
+- [x] `npm run typecheck` passes after UI changes.
+- [x] `npm run build` passes after UI changes.
 
 Acceptance:
 
-- [ ] UI feels like an engineering release tool.
+- [ ] UI feels like an engineering release tool after browser visual QA.
+
+Current progress:
+
+- [x] Added `/api/local-gate` for local profile, context, risk surface, generated suite, coverage, replay result, and report data.
+- [x] Added dashboard panels for agent profile review, context discovery, risk surface, generated suite, coverage map, replay report, and incident intake.
+- [x] Kept the existing manual project/test dashboard below the local release gate.
+- [ ] Run browser visual QA once Playwright or in-app browser automation is available.
 
 ## Phase 16: Sample Local Agent And Demo
 
@@ -710,9 +728,9 @@ Required:
 - [x] sample HTTP agent
 - [x] sample command agent
 - [x] seeded config
-- [ ] generated suite
-- [ ] expected failing report
-- [ ] fixed passing report
+- [x] generated suite
+- [x] expected failing report
+- [x] fixed passing report
 
 Tests:
 
@@ -730,6 +748,10 @@ Current progress:
 - [x] Added `examples/sample-agent/http-agent.mjs`.
 - [x] Added command and HTTP sample configs.
 - [x] Added sample agent README.
+- [x] Added script adapter config.
+- [x] Added fixture summaries for generated suite, unsafe failing report, and safe passing report.
+- [x] Verified unsafe mode blocks release with 14% pass rate.
+- [x] Verified safe mode reaches `Ready for limited release` with 100% pass rate.
 
 ## Phase 17: Documentation And Repo Polish
 
@@ -738,8 +760,8 @@ Required docs:
 - [x] README quickstart
 - [x] security model
 - [x] CLI guide
-- [ ] config reference
-- [ ] adapter guide
+- [x] config reference
+- [x] adapter guide
 - [x] GitHub Actions guide
 - [x] incident workflow guide
 - [x] suite generation explanation
@@ -754,7 +776,7 @@ Repo quality:
 
 Acceptance:
 
-- [ ] Repo is linkable as a Quainy Labs showcase product.
+- [x] Repo is linkable as a Quainy Labs showcase product.
 
 ## Phase 18: Quality Gate For Each Phase
 
