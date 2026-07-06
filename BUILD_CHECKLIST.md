@@ -87,7 +87,7 @@ The exact folders can change, but the separation should remain.
 | 12. Reports | Complete | JSON, Markdown, UI report page, readiness scoring, recommendations, and context audit summary are in place. |
 | 13. CLI | Complete | Core commands, version output, package metadata, bin config, and npm pack dry-run are tested. |
 | 14. GitHub Actions | Complete | Workflow generation supports local npm scripts, npx/package mode, optional agent startup, and artifact upload. |
-| 15. UI upgrade | Implemented, visual QA pending | Dashboard now surfaces local gate project/profile/context/risk/suite/coverage/replay/report/incident panels; browser visual QA still needs Playwright or in-app browser access. |
+| 15. UI upgrade | Implemented, visual QA pending | Dashboard now initializes, generates, runs, persists reports, adds incident regressions, and shows local artifact state; browser visual QA still needs Playwright or in-app browser access. |
 | 16. Sample local agent | Complete | Command, script, and HTTP demos plus generated-suite, failing-report, and passing-report fixture summaries are in place. |
 | 17. Documentation polish | Complete | README now covers quickstart, security, config, adapters, GitHub Actions, incidents, generation, reports, and sample demo fixtures. |
 | 18. Quality gate | Complete | `npm test`, `typecheck`, `build`, `audit`, and relevant CLI profile/generate smoke pass for current slice. |
@@ -643,6 +643,7 @@ Current progress:
 - [x] Added `init`, `profile`, `generate`, `run`, `report`, and `add-incident` commands.
 - [x] Added `npm run risk-replay -- ...` script.
 - [x] Added package-ready metadata, CLI `--version`, bin entry, Node engine, and npm pack dry-run test.
+- [x] Added macOS/Linux `install.sh` and Windows `install.ps1` for pre-npm GitHub-based CLI installation.
 
 ## Phase 14: GitHub Actions Template
 
@@ -705,6 +706,9 @@ Tests:
 - [ ] Dashboard works with empty, partial, and complete profiles.
 - [x] Local dashboard route returns 200.
 - [x] Local gate API route returns 200 and structured release-gate data.
+- [x] Local gate API generates and persists suites through explicit POST action.
+- [x] Local gate API runs adapters and persists reports only through explicit POST action.
+- [x] Local gate API adds incident regressions and regenerates suite coverage.
 - [x] `npm run typecheck` passes after UI changes.
 - [x] `npm run build` passes after UI changes.
 
@@ -715,8 +719,11 @@ Acceptance:
 Current progress:
 
 - [x] Added `/api/local-gate` for local profile, context, risk surface, generated suite, coverage, replay result, and report data.
-- [x] Added dashboard panels for agent profile review, context discovery, risk surface, generated suite, coverage map, replay report, and incident intake.
+- [x] Added explicit local gate actions for initialize, generate suite, run gate, refresh, and add incident.
+- [x] GET state no longer executes replay adapters on page load.
+- [x] Added dashboard panels for agent profile review, context discovery, risk surface, generated suite, coverage map, replay report, and functional incident intake.
 - [x] Kept the existing manual project/test dashboard below the local release gate.
+- [x] Added artifact-state badges for config, suite, report, and incident count.
 - [ ] Run browser visual QA once Playwright or in-app browser automation is available.
 
 ## Phase 16: Sample Local Agent And Demo
@@ -766,6 +773,7 @@ Required docs:
 - [x] incident workflow guide
 - [x] suite generation explanation
 - [x] report interpretation guide
+- [x] curl/PowerShell pre-npm install guide
 
 Repo quality:
 

@@ -2442,6 +2442,7 @@ function isHighRiskTool(tool: string) {
 function isLikelyFileOrRiskReplayReference(value: string) {
   return (
     /\.(md|mdx|json|yaml|yml|ts|tsx|js|jsx|mjs|cjs|py|txt|env)$/i.test(value) ||
-    /^risk-replay\./i.test(value)
+    /^risk-replay\./i.test(value) ||
+    /^(context|thresholds|report|adapter|agent)\./i.test(value)
   );
 }

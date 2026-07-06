@@ -12,6 +12,8 @@
     "lib",
     "examples/sample-agent",
     "risk-replay.config.example.json",
+    "install.sh",
+    "install.ps1",
     "README.md",
     "PRODUCT_PLAN.md",
     "BUILD_CHECKLIST.md",

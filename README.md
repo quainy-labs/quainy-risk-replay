@@ -41,21 +41,68 @@ Risk Replay is offline by design.
 - Optional BYO LLM suite expansion may come later, but it must be explicit and initiated from the user's environment.
 - Quainy-hosted generation is not part of the default product path.
 
-## Target User Flow
+## Install The CLI
+
+The package is not published to the npm registry yet. For the first public path, install the CLI from the GitHub repo.
+
+macOS/Linux:
 
 ```bash
-npm install
-npm run dev
+curl -fsSL https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.sh | sh
 ```
 
-Local CLI flow:
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.ps1 | iex
+```
+
+The installer checks for Node.js 22 or newer and installs the CLI globally from:
+
+```text
+github:quainy-labs/quainy-risk-replay
+```
+
+Dry run without installing:
 
 ```bash
-npm run risk-replay -- init
-npm run risk-replay -- profile
-npm run risk-replay -- generate
-npm run risk-replay -- run
-npm run risk-replay -- report
+curl -fsSL https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.sh | QRR_DRY_RUN=1 sh
+```
+
+Override the package source:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.sh | QRR_PACKAGE_SPEC=github:your-org/quainy-risk-replay sh
+```
+
+Pin a branch, tag, or commit:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.sh | QRR_REF=v0.1.0 sh
+```
+
+PowerShell:
+
+```powershell
+$env:QRR_REF="v0.1.0"; irm https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.ps1 | iex
+```
+
+After npm publishing, the preferred install path will become:
+
+```bash
+npm install -D quainy-risk-replay
+```
+
+## Target User Flow
+
+After installing the CLI:
+
+```bash
+quainy-risk-replay init
+quainy-risk-replay profile
+quainy-risk-replay generate
+quainy-risk-replay run
+quainy-risk-replay report
 ```
 
 Expected result:
@@ -227,7 +274,7 @@ Every profile/generation/run writes a local audit file:
 risk-replay/reports/context-audit.json
 ```
 
-The audit records each file path, source type, byte size, and read/skip/exclude decision. Incident JSON files and guided UI intake remain later workflow additions.
+The audit records each file path, source type, byte size, and read/skip/exclude decision. Incident JSON files can be added from the CLI or the dashboard; both paths save local incident files and regenerate regression coverage locally.
 
 The user should always be able to see what was detected and confirm what becomes part of the profile.
 
@@ -427,12 +474,22 @@ Checked-in fixture summaries live in `examples/sample-agent/fixtures` so the dem
 
 ## Current App Setup
 
+Use this when developing the Risk Replay repo itself:
+
 ```bash
 npm install
 npm run dev
 ```
 
 Open `http://localhost:3000`. If that port is busy, Next.js will print the active port.
+
+The dashboard can now operate the local release gate directly:
+
+- initialize `risk-replay.config.json` and local folders
+- generate and persist `risk-replay/tests/generated-suite.json`
+- run the configured adapter and persist `risk-replay/reports/latest.json`
+- add production incidents as local regression tests
+- show whether config, suite, report, and incidents are present
 
 Useful checks:
 
@@ -449,7 +506,7 @@ npm audit --omit=dev
 Initialize a local Risk Replay workspace in any agent repo:
 
 ```bash
-npm run risk-replay -- init
+quainy-risk-replay init
 ```
 
 This creates:
@@ -464,14 +521,14 @@ risk-replay/reports/
 Generate a deterministic local suite:
 
 ```bash
-npm run risk-replay -- generate
+quainy-risk-replay generate
 ```
 
 Control hard variant depth:
 
 ```bash
-npm run risk-replay -- generate --max-variants 0
-npm run risk-replay -- generate --max-variants 2
+quainy-risk-replay generate --max-variants 0
+quainy-risk-replay generate --max-variants 2
 ```
 
 Risk Replay reads allowlisted local context, merges inferred fields with explicit config, builds a structured risk surface, deduplicates tests by risk signature, and writes the generated suite to:
@@ -485,7 +542,7 @@ Coverage currently includes categories, tools, data sources, sensitive data, app
 Run the release gate:
 
 ```bash
-npm run risk-replay -- run
+quainy-risk-replay run
 ```
 
 Reports are written to:
@@ -500,7 +557,7 @@ Reports include pass/fail results, release readiness, risk-surface coverage, rec
 The checked-in example config lives at `risk-replay.config.example.json`.
 Sample adapter configs live under `examples/sample-agent`.
 
-The package exposes a CLI bin named `quainy-risk-replay` and is configured for Node 22 or newer. Local development can use `npm run risk-replay -- ...`; packaged usage can call `quainy-risk-replay ...`.
+The package exposes a CLI bin named `quainy-risk-replay` and is configured for Node 22 or newer. Local development inside this repo can still use `npm run risk-replay -- ...`.
 
 The script adapter runs a local Node script directly without shell parsing:
 

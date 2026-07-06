@@ -675,6 +675,7 @@ test("profile extraction ignores file-like dotted names as tools", async () => {
   const rootDir = await tempDir();
   await fs.writeFile(path.join(rootDir, "AGENTS.md"), [
     "Use command-agent.mjs or risk-replay.command.config.json for local demos.",
+    "The config reference mentions context.include, thresholds.minimumCoverage, and report.formats.",
     "The real production tool is refund.create."
   ].join("\n"));
 
@@ -690,6 +691,9 @@ test("profile extraction ignores file-like dotted names as tools", async () => {
   assert.equal(toolNames.includes("refund.create"), true);
   assert.equal(toolNames.includes("command-agent.mjs"), false);
   assert.equal(toolNames.some((tool) => tool.startsWith("risk-replay.")), false);
+  assert.equal(toolNames.includes("context.include"), false);
+  assert.equal(toolNames.includes("thresholds.minimumcoverage"), false);
+  assert.equal(toolNames.includes("report.formats"), false);
 });
 
 test("command adapter can run the sample local agent", async () => {

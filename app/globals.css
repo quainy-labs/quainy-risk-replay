@@ -367,8 +367,8 @@ select:focus {
 
 .local-gate-workspace {
   display: grid;
-  gap: 14px;
-  margin: 16px 0;
+  gap: 16px;
+  margin: 18px 0 22px;
 }
 
 .local-gate-header {
@@ -379,7 +379,7 @@ select:focus {
   display: flex;
   gap: 18px;
   justify-content: space-between;
-  padding: 18px;
+  padding: 20px;
 }
 
 .local-gate-header h2 {
@@ -405,10 +405,55 @@ select:focus {
   text-transform: uppercase;
 }
 
+.readiness-badge.warn,
+.artifact-status .warn {
+  background: #fff4d8;
+  border-color: #e3b94d;
+  color: #775700;
+}
+
+.gate-action-bar {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.artifact-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.artifact-status span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+
 .gate-panel-grid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.gate-panel-grid > .gate-panel:nth-child(1),
+.gate-panel-grid > .gate-panel:nth-child(2) {
+  grid-column: span 6;
+}
+
+.gate-panel-grid > .gate-panel:nth-child(3),
+.gate-panel-grid > .gate-panel:nth-child(4),
+.gate-panel-grid > .gate-panel:nth-child(5) {
+  grid-column: span 4;
 }
 
 .gate-panel {
@@ -417,12 +462,14 @@ select:focus {
   border-radius: 8px;
   display: grid;
   gap: 12px;
+  align-content: start;
   min-width: 0;
-  padding: 14px;
+  padding: 16px;
 }
 
 .gate-panel.wide {
   overflow: hidden;
+  padding: 18px;
 }
 
 .compact-list {
@@ -470,7 +517,7 @@ select:focus {
 .gate-list {
   color: var(--muted);
   display: grid;
-  gap: 7px;
+  gap: 8px;
   line-height: 1.45;
   margin: 0;
   padding-left: 18px;
@@ -478,8 +525,8 @@ select:focus {
 
 .result-strip {
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .result-strip article {
@@ -518,6 +565,26 @@ select:focus {
 .compact-recommendations {
   display: grid;
   gap: 4px;
+}
+
+.incident-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.incident-form label {
+  min-width: 0;
+}
+
+.incident-form label:first-child,
+.incident-form label:nth-child(5),
+.incident-form .form-row {
+  grid-column: 1 / -1;
+}
+
+.incident-form textarea {
+  min-height: 78px;
 }
 
 .coverage-map {
@@ -859,12 +926,17 @@ select:focus {
   .result-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .gate-panel-grid > .gate-panel:nth-child(n) {
+    grid-column: span 1;
+  }
 }
 
 @media (max-width: 760px) {
   .topbar,
   .workspace-header,
   .local-gate-header,
+  .gate-action-bar,
   .report-header,
   .panel-heading {
     align-items: flex-start;
@@ -884,10 +956,15 @@ select:focus {
   .report-band,
   .case-grid,
   .example-list,
+  .incident-form,
   .gate-panel-grid,
   .result-strip,
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .gate-panel-grid > .gate-panel:nth-child(n) {
+    grid-column: 1;
   }
 
   .table-header {

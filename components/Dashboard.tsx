@@ -41,7 +41,31 @@ const emptyTest: NewTestCaseInput = {
   severity: "high"
 };
 
+const emptyIncident = {
+  title: "",
+  userInput: "",
+  retrievedContext: "",
+  actualBadResponse: "",
+  expectedSafeBehavior: "",
+  severity: "high"
+};
+
+type LocalGateAction = "init" | "generate" | "run" | "refresh" | "add-incident";
+
+type IncidentInput = typeof emptyIncident;
+
 type LocalGatePreview = {
+  status: {
+    configExists: boolean;
+    suiteExists: boolean;
+    reportExists: boolean;
+    configPath: string;
+    suitePath: string;
+    reportPath: string;
+    incidentCount: number;
+    usingPreviewSuite: boolean;
+    canRun: boolean;
+  };
   project: string;
   profile: {
     purpose: string;
@@ -66,9 +90,9 @@ type LocalGatePreview = {
   report: {
     readiness: string;
     totalTests: number;
-    passRate: number;
+    passRate: number | null;
     riskCoverageScore: number;
-    releaseConfidence: number;
+    releaseConfidence: number | null;
     recommendations: string[];
     auditSummary: { filesRead: number; filesSkipped: number; filesExcluded: number; filesMissing: number };
   };
@@ -129,6 +153,32 @@ export function Dashboard() {
     if (!response.ok) return;
     const data = (await response.json()) as LocalGatePreview;
     setLocalGate(data);
+  }
+
+  async function runLocalGateAction(action: LocalGateAction, payload: Record<string, unknown> = {}) {
+    setIsBusy(true);
+    setMessage("Working");
+
+    try {
+      const response = await fetch("/api/local-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...payload })
+      });
+
+      if (!response.ok) {
+        const error = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(error.error ?? "Local release gate action failed.");
+      }
+
+      const data = (await response.json()) as LocalGatePreview;
+      setLocalGate(data);
+      setMessage(action === "run" ? "Local gate run complete" : action === "add-incident" ? "Incident regression added" : "Local gate updated");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Something went wrong.");
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   async function withRefresh(action: () => Promise<void>, success: string) {
@@ -327,7 +377,13 @@ export function Dashboard() {
               <Metric label="Readiness" value={report.readiness} />
             </div>
 
-            {localGate ? <LocalGateWorkspace preview={localGate} /> : null}
+            {localGate ? (
+              <LocalGateWorkspace
+                isBusy={isBusy}
+                onAction={runLocalGateAction}
+                preview={localGate}
+              />
+            ) : null}
 
             <section className="split-workspace">
               <form className="test-form" onSubmit={addTest}>
@@ -513,10 +569,30 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function LocalGateWorkspace({ preview }: { preview: LocalGatePreview }) {
+function LocalGateWorkspace({
+  isBusy,
+  onAction,
+  preview
+}: {
+  isBusy: boolean;
+  onAction: (action: LocalGateAction, payload?: Record<string, unknown>) => Promise<void>;
+  preview: LocalGatePreview;
+}) {
+  const [incidentForm, setIncidentForm] = useState<IncidentInput>(emptyIncident);
   const missingCoverage = preview.coverage.filter((item) => item.status === "missing" || item.status === "unknown");
   const criticalRisks = preview.riskSurface.filter((item) => item.severity === "critical").length;
   const variants = preview.tests.filter((test) => test.variantOf).length;
+  const readinessClass = preview.report.readiness === "Do not ship yet"
+    ? "readiness-badge fail"
+    : preview.report.readiness === "Not run yet"
+      ? "readiness-badge warn"
+      : "readiness-badge pass";
+
+  async function submitIncident(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onAction("add-incident", { incident: incidentForm });
+    setIncidentForm(emptyIncident);
+  }
 
   return (
     <section className="local-gate-workspace">
@@ -526,16 +602,42 @@ function LocalGateWorkspace({ preview }: { preview: LocalGatePreview }) {
           <h2>{preview.project}</h2>
           <p>{preview.profile.purpose}</p>
         </div>
-        <span className={preview.report.readiness === "Do not ship yet" ? "readiness-badge fail" : "readiness-badge pass"}>
+        <span className={readinessClass}>
           {preview.report.readiness}
         </span>
       </div>
 
+      <div className="gate-action-bar">
+        <div className="artifact-status">
+          <span className={preview.status.configExists ? "pass" : "warn"}>{preview.status.configExists ? "Config ready" : "Config missing"}</span>
+          <span className={preview.status.suiteExists ? "pass" : "warn"}>{preview.status.suiteExists ? "Suite saved" : "Preview suite"}</span>
+          <span className={preview.status.reportExists ? "pass" : "warn"}>{preview.status.reportExists ? "Report saved" : "Report not run"}</span>
+          <span>{preview.status.incidentCount} incidents</span>
+        </div>
+        <div className="toolbar">
+          <button className="secondary-action" disabled={isBusy} onClick={() => onAction("init")} type="button">
+            <FilePlus2 size={17} />
+            Initialize
+          </button>
+          <button className="secondary-action" disabled={isBusy} onClick={() => onAction("generate")} type="button">
+            <GitBranch size={17} />
+            Generate suite
+          </button>
+          <button className="primary-action" disabled={isBusy || !preview.status.canRun} onClick={() => onAction("run")} type="button">
+            <Play size={17} />
+            Run gate
+          </button>
+          <button className="icon-action" disabled={isBusy} onClick={() => onAction("refresh")} title="Refresh local gate state" type="button">
+            <RefreshCw size={17} />
+          </button>
+        </div>
+      </div>
+
       <div className="metric-grid compact">
         <Metric label="Generated tests" value={preview.report.totalTests.toString()} />
-        <Metric label="Pass rate" value={`${preview.report.passRate}%`} />
+        <Metric label="Pass rate" value={preview.report.passRate === null ? "-" : `${preview.report.passRate}%`} />
         <Metric label="Coverage" value={`${preview.report.riskCoverageScore}%`} />
-        <Metric label="Confidence" value={preview.report.releaseConfidence.toString()} />
+        <Metric label="Confidence" value={preview.report.releaseConfidence === null ? "-" : preview.report.releaseConfidence.toString()} />
       </div>
 
       <div className="gate-panel-grid">
@@ -600,6 +702,7 @@ function LocalGateWorkspace({ preview }: { preview: LocalGatePreview }) {
           <div className="tag-row">
             <span>{preview.tests.length} tests</span>
             <span>{variants} variants</span>
+            <span>{preview.status.usingPreviewSuite ? "not saved" : "saved"}</span>
           </div>
           <ul className="gate-list">
             {preview.tests.slice(0, 4).map((test) => (
@@ -633,15 +736,21 @@ function LocalGateWorkspace({ preview }: { preview: LocalGatePreview }) {
           <p className="eyebrow">Replay run and release report</p>
           <Play size={18} />
         </div>
-        <div className="result-strip">
-          {preview.results.slice(0, 5).map((result) => (
+        {preview.results.length ? (
+          <div className="result-strip">
+            {preview.results.slice(0, 5).map((result) => (
             <article key={result.testId}>
               <strong className={result.status === "pass" ? "pass" : "fail"}>{result.status}</strong>
               <span>{result.category}</span>
               <p>{result.explanation}</p>
             </article>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="gate-note">
+            No persisted replay results yet. Use <strong>Run gate</strong> to execute the suite against the configured local adapter and write {preview.status.reportPath}.
+          </p>
+        )}
         <ul className="recommendation-list compact-recommendations">
           {preview.report.recommendations.slice(0, 3).map((recommendation) => (
             <li key={recommendation}>{recommendation}</li>
@@ -654,9 +763,70 @@ function LocalGateWorkspace({ preview }: { preview: LocalGatePreview }) {
           <p className="eyebrow">Incident intake</p>
           <FilePlus2 size={18} />
         </div>
-        <p className="gate-note">
-          Production failures can be added locally with <code>npm run risk-replay -- add-incident</code>, then converted into exact and variant regression tests with <code>generate --from-incident</code>.
-        </p>
+        <form className="incident-form" onSubmit={submitIncident}>
+          <label>
+            Incident title
+            <input
+              required
+              value={incidentForm.title}
+              onChange={(event) => setIncidentForm((current) => ({ ...current, title: event.target.value }))}
+              placeholder="Agent leaked a private note"
+            />
+          </label>
+          <label>
+            User input
+            <textarea
+              required
+              value={incidentForm.userInput}
+              onChange={(event) => setIncidentForm((current) => ({ ...current, userInput: event.target.value }))}
+              placeholder="What did the user ask?"
+            />
+          </label>
+          <label>
+            Retrieved or untrusted context
+            <textarea
+              required
+              value={incidentForm.retrievedContext}
+              onChange={(event) => setIncidentForm((current) => ({ ...current, retrievedContext: event.target.value }))}
+              placeholder="What context contributed to the failure?"
+            />
+          </label>
+          <label>
+            Actual bad response
+            <textarea
+              required
+              value={incidentForm.actualBadResponse}
+              onChange={(event) => setIncidentForm((current) => ({ ...current, actualBadResponse: event.target.value }))}
+              placeholder="What did the agent do wrong?"
+            />
+          </label>
+          <label>
+            Expected safe behavior
+            <textarea
+              required
+              value={incidentForm.expectedSafeBehavior}
+              onChange={(event) => setIncidentForm((current) => ({ ...current, expectedSafeBehavior: event.target.value }))}
+              placeholder="What should the agent do instead?"
+            />
+          </label>
+          <div className="form-row">
+            <label>
+              Severity
+              <select
+                value={incidentForm.severity}
+                onChange={(event) => setIncidentForm((current) => ({ ...current, severity: event.target.value }))}
+              >
+                {severityLevels.map((severity) => (
+                  <option key={severity} value={severity}>{severity}</option>
+                ))}
+              </select>
+            </label>
+            <button className="primary-action" disabled={isBusy} type="submit">
+              <FilePlus2 size={17} />
+              Add regression
+            </button>
+          </div>
+        </form>
       </section>
     </section>
   );
