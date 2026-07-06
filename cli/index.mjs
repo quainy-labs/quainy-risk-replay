@@ -27,11 +27,6 @@ const [command, ...args] = process.argv.slice(2);
 const configPath = getOption("--config") ?? "risk-replay.config.json";
 const cliVersion = "0.1.0";
 
-main().catch((error) => {
-  console.error(`\nRisk Replay failed: ${error.message}`);
-  process.exit(1);
-});
-
 async function main() {
   switch (command) {
     case "init":
@@ -55,6 +50,9 @@ async function main() {
     case "github-actions":
       await githubActionsCommand();
       return;
+    case "help":
+      printHelp(args[0]);
+      return;
     case "--help":
     case "-h":
     case undefined:
@@ -65,7 +63,7 @@ async function main() {
       console.log(cliVersion);
       return;
     default:
-      throw new Error(`Unknown command: ${command}. Run quainy-risk-replay --help.`);
+      throw new Error(`Unknown command: ${command}. Run quainy-risk-replay help.`);
   }
 }
 
@@ -258,12 +256,111 @@ async function githubActionsCommand() {
   console.log(`GitHub Actions workflow created: ${relative(workflowPath)}`);
 }
 
-function printHelp() {
+const commandHelp = {
+  init: {
+    usage: "quainy-risk-replay init [--github-actions]",
+    summary: "Create local Risk Replay files in the current AI project.",
+    details: [
+      "Creates risk-replay.config.json plus risk-replay/tests, incidents, and reports directories.",
+      "Reads only allowlisted local context and writes a context audit when discovery runs.",
+      "Use --github-actions to also create .github/workflows/risk-replay.yml."
+    ]
+  },
+  profile: {
+    usage: "quainy-risk-replay profile",
+    summary: "Show the detected agent profile and profile gaps.",
+    details: [
+      "Displays purpose, tools, data sources, sensitive data, approvals, and risk surface counts.",
+      "Shows whether fields came from explicit config, inferred local context, mixed sources, or are unknown.",
+      "Use before generate to confirm the suite will be based on the right system details."
+    ]
+  },
+  generate: {
+    usage: "quainy-risk-replay generate [--from-incident] [--max-variants 1]",
+    summary: "Generate a deterministic local risk test suite.",
+    details: [
+      "Writes risk-replay/tests/generated-suite.json.",
+      "Uses config, allowlisted context, release-gate categories, and optional incidents.",
+      "Use --from-incident to include production incident regressions.",
+      "Use --max-variants N to control hard variants per risk-surface item."
+    ]
+  },
+  run: {
+    usage: "quainy-risk-replay run [--config risk-replay.config.json]",
+    summary: "Run the generated suite against the configured local adapter.",
+    details: [
+      "Calls the mock, HTTP, command, or script adapter for each generated test.",
+      "Writes risk-replay/reports/latest.json and risk-replay/reports/latest.md.",
+      "Exits non-zero when readiness is Do not ship yet, so CI can block releases."
+    ]
+  },
+  report: {
+    usage: "quainy-risk-replay report",
+    summary: "Print the latest Markdown report to the terminal.",
+    details: [
+      "Reads risk-replay/reports/latest.json.",
+      "Shows readiness, scores, failed categories, blocking failures, test results, coverage gaps, and recommendations."
+    ]
+  },
+  "add-incident": {
+    usage: "quainy-risk-replay add-incident [incident.json]",
+    summary: "Add a production failure as a local regression input.",
+    details: [
+      "Without a file, writes risk-replay/incidents/incident-template.json.",
+      "With a file, copies the incident into risk-replay/incidents.",
+      "Run generate --from-incident afterward to turn incidents into regression tests."
+    ]
+  },
+  "github-actions": {
+    usage: "quainy-risk-replay github-actions [--agent-start \"npm run agent:test-server\"] [--npx]",
+    summary: "Create a GitHub Actions workflow for the local release gate.",
+    details: [
+      "Writes .github/workflows/risk-replay.yml.",
+      "Use --agent-start when CI must start a local agent server before running tests.",
+      "Use --npx for a package-style workflow after the package is published or installable."
+    ]
+  },
+  help: {
+    usage: "quainy-risk-replay help [command]",
+    summary: "Show command usage and high-level guidance.",
+    details: [
+      "Run without a command to see the full command list.",
+      "Run with a command name, such as quainy-risk-replay help generate, for command-specific help."
+    ]
+  }
+};
+
+function printHelp(commandName) {
+  if (commandName) {
+    const entry = commandHelp[commandName];
+    if (!entry) {
+      console.log(`Unknown help topic: ${commandName}
+
+Available commands:
+${Object.keys(commandHelp).map((name) => `  ${name}`).join("\n")}
+`);
+      return;
+    }
+
+    console.log(`Quainy Risk Replay: ${commandName}
+
+${entry.summary}
+
+Usage:
+  ${entry.usage}
+
+What it does:
+${entry.details.map((detail) => `  - ${detail}`).join("\n")}
+`);
+    return;
+  }
+
   console.log(`Quainy Risk Replay
 
 Local-first AI agent release gate.
 
 Usage:
+  quainy-risk-replay help [command]
   quainy-risk-replay init
   quainy-risk-replay profile
   quainy-risk-replay generate [--from-incident] [--max-variants 1]
@@ -273,13 +370,31 @@ Usage:
   quainy-risk-replay github-actions [--agent-start "npm run agent:test-server"] [--npx]
   quainy-risk-replay --version
 
+Commands:
+  init            Create local Risk Replay config and folders in this AI project.
+  profile         Review detected agent profile, source provenance, and gaps.
+  generate        Generate deterministic safety and reliability test cases.
+  run             Execute the generated suite against the configured adapter.
+  report          Print the latest Markdown release report.
+  add-incident    Add a production failure as a regression input.
+  github-actions  Create a CI workflow that runs the release gate.
+  help            Show this help, or details for one command.
+
 Core workflow:
   quainy-risk-replay init
+  quainy-risk-replay profile
   quainy-risk-replay generate
   quainy-risk-replay run
+  quainy-risk-replay report
 
 CI setup:
   quainy-risk-replay init --github-actions
+
+Examples:
+  quainy-risk-replay help generate
+  quainy-risk-replay help run
+  quainy-risk-replay generate --from-incident
+  quainy-risk-replay run --config risk-replay.config.json
 `);
 }
 
@@ -390,3 +505,8 @@ function coverageScore(coverage) {
   }, 0);
   return Math.round((score / coverage.length) * 100);
 }
+
+main().catch((error) => {
+  console.error(`\nRisk Replay failed: ${error.message}`);
+  process.exit(1);
+});

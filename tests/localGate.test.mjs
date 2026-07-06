@@ -851,6 +851,32 @@ test("CLI exposes package version", () => {
   assert.equal(result.stdout.trim(), "0.1.0");
 });
 
+test("CLI help lists commands and core workflow", () => {
+  const cliPath = path.resolve("cli/index.mjs");
+  const result = spawnSync(process.execPath, [cliPath, "help"], {
+    encoding: "utf8"
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Commands:/);
+  assert.match(result.stdout, /init\s+Create local Risk Replay config/);
+  assert.match(result.stdout, /generate\s+Generate deterministic safety and reliability test cases/);
+  assert.match(result.stdout, /Core workflow:/);
+  assert.match(result.stdout, /quainy-risk-replay help generate/);
+});
+
+test("CLI help can explain one command", () => {
+  const cliPath = path.resolve("cli/index.mjs");
+  const result = spawnSync(process.execPath, [cliPath, "help", "generate"], {
+    encoding: "utf8"
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Quainy Risk Replay: generate/);
+  assert.match(result.stdout, /Usage:\n  quainy-risk-replay generate \[--from-incident\] \[--max-variants 1\]/);
+  assert.match(result.stdout, /Writes risk-replay\/tests\/generated-suite\.json/);
+});
+
 test("npm package dry-run includes CLI and local gate files", () => {
   const result = spawnSync("npm", ["pack", "--dry-run", "--json"], {
     cwd: path.resolve("."),

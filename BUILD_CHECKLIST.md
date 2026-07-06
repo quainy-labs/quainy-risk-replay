@@ -618,6 +618,7 @@ Commands:
 - [x] `run`
 - [x] `report`
 - [x] `add-incident`
+- [x] `help`
 
 Required behavior:
 
@@ -645,6 +646,7 @@ Current progress:
 
 - [x] Added CLI entrypoint at `cli/index.mjs`.
 - [x] Added `init`, `profile`, `generate`, `run`, `report`, and `add-incident` commands.
+- [x] Added `help` and command-specific help topics.
 - [x] Added `npm run risk-replay -- ...` script.
 - [x] Added package-ready metadata, CLI `--version`, bin entry, Node engine, and npm pack dry-run test.
 - [x] Added macOS/Linux `install.sh` and Windows `install.ps1` for pre-npm GitHub-based CLI installation.

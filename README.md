@@ -59,6 +59,13 @@ curl -fsSL https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main
 
 Run these commands from the project that owns your chatbot, assistant, or agent behavior. Risk Replay should be installed as a tool; do not copy this whole repository into your app.
 
+To see every command and what it does:
+
+```bash
+quainy-risk-replay help
+quainy-risk-replay help generate
+```
+
 ### 1. Initialize Local Release-Gate Files
 
 ```bash

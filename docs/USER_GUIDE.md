@@ -87,6 +87,14 @@ After npm publishing, the preferred install path will become:
 npm install -D quainy-risk-replay
 ```
 
+Confirm the CLI and discover commands:
+
+```bash
+quainy-risk-replay --version
+quainy-risk-replay help
+quainy-risk-replay help generate
+```
+
 ## 3. Initialize Inside Your AI Project
 
 Run commands from the project that owns your assistant, agent, or chatbot behavior.
@@ -940,4 +948,5 @@ quainy-risk-replay run
 quainy-risk-replay report
 quainy-risk-replay add-incident incident.json
 quainy-risk-replay github-actions
+quainy-risk-replay help [command]
 ```
