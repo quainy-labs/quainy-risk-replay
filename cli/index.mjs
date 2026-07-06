@@ -14,7 +14,7 @@ import {
   loadConfig,
   mergeConfigWithInferredProfile,
   readIncidents,
-  readSuite,
+  readSuiteArtifact,
   renderMarkdownReport,
   runSuite,
   writeContextAudit,
@@ -147,14 +147,18 @@ async function generateCommand() {
   await writeContextAudit(rootDir, discovery);
   const incidents = args.includes("--from-incident") ? await readIncidents(rootDir) : [];
   const tests = generateSuite(config, incidents, getSuiteGenerationOptions());
-  const suitePath = await writeSuite(rootDir, tests);
+  const suiteWrite = await writeSuite(rootDir, tests, config, discovery);
   const riskSurface = buildRiskSurface(config);
   const coverage = buildCoverage(config, tests, riskSurface);
   const missing = coverage.filter((item) => item.status === "missing" || item.status === "unknown");
 
   console.log(`Generated ${tests.length} tests.`);
   console.log(`Risk surface: ${riskSurface.length} mapped item(s).`);
-  console.log(`Suite: ${relative(suitePath)}`);
+  console.log(`Suite id: ${suiteWrite.suite.id}`);
+  console.log(`Suite: ${relative(suiteWrite.suitePath)}`);
+  if (suiteWrite.versionPath) {
+    console.log(`Versioned suite: ${relative(suiteWrite.versionPath)}`);
+  }
   console.log(`Coverage score: ${coverageScore(coverage)}%`);
 
   if (missing.length) {
@@ -172,25 +176,37 @@ async function runCommand() {
   const { config, discovery } = await loadEffectiveConfig();
   await writeContextAudit(rootDir, discovery);
   let tests;
+  let suite;
 
   try {
-    tests = await readSuite(rootDir);
+    const artifact = await readSuiteArtifact(rootDir, config, discovery);
+    tests = artifact.tests;
+    suite = artifact.suite;
   } catch {
     const incidents = await readIncidents(rootDir);
     tests = generateSuite(config, incidents, getSuiteGenerationOptions());
-    await writeSuite(rootDir, tests);
+    const suiteWrite = await writeSuite(rootDir, tests, config, discovery);
+    suite = suiteWrite.suite;
   }
 
   const results = await runSuite(config, tests);
-  const report = buildReport(config, tests, results, discovery);
-  const paths = await writeReports(rootDir, report);
+  const report = buildReport(config, tests, results, discovery, suite);
+  const paths = await writeReports(rootDir, report, config);
 
   console.log(`${report.readiness}`);
+  console.log(`Suite id: ${report.suite.id}`);
+  console.log(`Run id: ${report.run.id}`);
   console.log(`Tests: ${report.passCount}/${report.totalTests} passed (${report.passRate}%)`);
   console.log(`Risk coverage: ${report.riskCoverageScore}%`);
   console.log(`Release confidence: ${report.releaseConfidence}`);
   console.log(`JSON report: ${relative(paths.jsonPath)}`);
   console.log(`Markdown report: ${relative(paths.markdownPath)}`);
+  if (paths.versionJsonPath) {
+    console.log(`Versioned JSON report: ${relative(paths.versionJsonPath)}`);
+  }
+  if (paths.versionMarkdownPath) {
+    console.log(`Versioned Markdown report: ${relative(paths.versionMarkdownPath)}`);
+  }
 
   if (report.blockingFailures.length) {
     console.log("\nBlocking failures:");
@@ -321,7 +337,9 @@ ${agentStep}
           name: risk-replay-reports
           path: |
             risk-replay/reports/*
+            risk-replay/reports/runs/*
             risk-replay/tests/generated-suite.json
+            risk-replay/tests/versions/*
 `;
 }
 

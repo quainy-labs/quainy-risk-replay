@@ -36,4 +36,5 @@ tsconfig.tsbuildinfo
 # risk replay local outputs
 risk-replay/reports
 risk-replay/tests/generated-suite.json
+risk-replay/tests/versions
 risk-replay/incidents/incident-template.json

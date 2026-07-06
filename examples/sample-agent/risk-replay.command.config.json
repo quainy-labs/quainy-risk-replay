@@ -40,5 +40,8 @@
   },
   "report": {
     "formats": ["json", "markdown"]
+  },
+  "versioning": {
+    "enabled": false
   }
 }

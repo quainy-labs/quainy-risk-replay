@@ -64,16 +64,35 @@ The honest promise is risk reduction and release confidence, not absolute safety
 
 ### 1. Web UI
 
-The UI is for:
+There are two UI stages.
+
+Current showcase UI:
+
+- runs from this repository checkout
+- demonstrates the product workflow for Quainy Labs
+- uses the files and local artifacts available to this repo
+- is useful for demos, product development, screenshots, and case-study proof
+- is not the normal integration path for another private project after CLI install
+
+Target local project UI:
+
+- should work like a local developer companion, similar in spirit to Swagger UI for FastAPI apps
+- should be launched from the user project root, for example `quainy-risk-replay studio`
+- should serve a local-only UI on `localhost`
+- should read the target project's `risk-replay.config.json`, allowlisted context, generated suite, incidents, and reports
+- should let users configure profile fields, generate suites, review/edit generated tests, run adapters, and inspect reports without copying this repository into their app
+- should reuse the same core engine as the CLI and CI
+
+The user-facing UI is for:
 
 - creating or reviewing an agent profile
 - seeing the risk surface
 - generating suites
 - adding incidents
-- running local mock replays
+- running local replay adapters
 - reviewing human-readable reports
 
-The first screen should remain a working product dashboard, not a landing page.
+The first screen should remain a working product dashboard, not a landing page. For v1, the CLI is the real external integration path; the current repo UI is the showcase surface until `studio` exists.
 
 ### 2. CLI
 

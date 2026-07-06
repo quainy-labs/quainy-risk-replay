@@ -108,5 +108,8 @@
       "json",
       "markdown"
     ]
+  },
+  "versioning": {
+    "enabled": false
   }
 }

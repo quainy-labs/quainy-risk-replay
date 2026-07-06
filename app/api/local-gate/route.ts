@@ -15,7 +15,7 @@ import {
   localRiskCategories,
   mergeConfigWithInferredProfile,
   readIncidents,
-  readSuite,
+  readSuiteArtifact,
   runSuite,
   writeContextAudit,
   writeReports,
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     const incidents = body.fromIncidents ? await readIncidents(rootDir) : [];
     const tests = generateSuite(config, incidents, { maxVariantsPerRiskSurfaceItem: 1 });
     await writeContextAudit(rootDir, discovery);
-    await writeSuite(rootDir, tests);
+    await writeSuite(rootDir, tests, config, discovery);
     return NextResponse.json(await buildLocalGateState(rootDir));
   }
 
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     const incidents = await readIncidents(rootDir);
     const tests = generateSuite(config, incidents, { maxVariantsPerRiskSurfaceItem: 1 });
     await writeContextAudit(rootDir, discovery);
-    await writeSuite(rootDir, tests);
+    await writeSuite(rootDir, tests, config, discovery);
     return NextResponse.json(await buildLocalGateState(rootDir));
   }
 
@@ -83,18 +83,22 @@ export async function POST(request: Request) {
     const inferred = inferProfileFromContext(discovery);
     const config = mergeConfigWithInferredProfile(baseConfig, inferred);
     let tests;
+    let suite;
 
     try {
-      tests = await readSuite(rootDir);
+      const artifact = await readSuiteArtifact(rootDir, config, discovery);
+      tests = artifact.tests;
+      suite = artifact.suite;
     } catch {
       tests = generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 1 });
-      await writeSuite(rootDir, tests);
+      const suiteWrite = await writeSuite(rootDir, tests, config, discovery);
+      suite = suiteWrite.suite;
     }
 
     const results = await runSuite(config, tests);
-    const report = buildReport(config, tests, results, discovery);
+    const report = buildReport(config, tests, results, discovery, suite);
     await writeContextAudit(rootDir, discovery);
-    await writeReports(rootDir, report);
+    await writeReports(rootDir, report, config);
     return NextResponse.json(await buildLocalGateState(rootDir));
   }
 
@@ -117,9 +121,10 @@ async function buildLocalGateState(rootDir: string) {
   const review = buildProfileReview(baseConfig, inferred);
   const config = mergeConfigWithInferredProfile(baseConfig, inferred);
   const riskSurface = buildRiskSurface(config);
-  const tests = suiteExists
-    ? await readSuite(rootDir)
-    : generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 1 });
+  const suiteArtifact = suiteExists
+    ? await readSuiteArtifact(rootDir, config, discovery)
+    : null;
+  const tests = suiteArtifact?.tests ?? generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 1 });
   const coverage = buildCoverage(config, tests, riskSurface);
   const latestReport = reportExists ? await readLatestReport(reportPath) : null;
 
@@ -130,6 +135,10 @@ async function buildLocalGateState(rootDir: string) {
       reportExists,
       configPath: "risk-replay.config.json",
       suitePath: "risk-replay/tests/generated-suite.json",
+      suiteId: suiteArtifact?.suite.id ?? latestReport?.suite?.id ?? null,
+      suiteVersionPath: suiteArtifact?.suite.versionPath ?? latestReport?.suite?.versionPath ?? null,
+      runId: latestReport?.run?.id ?? null,
+      runVersionPath: latestReport?.run?.versionPath ?? null,
       reportPath: "risk-replay/reports/latest.json",
       incidentCount,
       usingPreviewSuite: !suiteExists,

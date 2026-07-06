@@ -61,7 +61,11 @@ type LocalGatePreview = {
     reportExists: boolean;
     configPath: string;
     suitePath: string;
+    suiteId: string | null;
+    suiteVersionPath: string | null;
     reportPath: string;
+    runId: string | null;
+    runVersionPath: string | null;
     incidentCount: number;
     usingPreviewSuite: boolean;
     canRun: boolean;
@@ -601,6 +605,9 @@ function LocalGateWorkspace({
           <p className="eyebrow">Local release gate</p>
           <h2>{preview.project}</h2>
           <p>{preview.profile.purpose}</p>
+          <p className="gate-note">
+            Showcase mode: this dashboard reads the repo where the app is running. For another AI project, install the CLI and run it from that project root.
+          </p>
         </div>
         <span className={readinessClass}>
           {preview.report.readiness}
@@ -613,6 +620,8 @@ function LocalGateWorkspace({
           <span className={preview.status.suiteExists ? "pass" : "warn"}>{preview.status.suiteExists ? "Suite saved" : "Preview suite"}</span>
           <span className={preview.status.reportExists ? "pass" : "warn"}>{preview.status.reportExists ? "Report saved" : "Report not run"}</span>
           <span>{preview.status.incidentCount} incidents</span>
+          {preview.status.suiteId ? <span title={preview.status.suiteVersionPath ?? preview.status.suitePath}>{preview.status.suiteId}</span> : null}
+          {preview.status.runId ? <span title={preview.status.runVersionPath ?? preview.status.reportPath}>{preview.status.runId}</span> : null}
         </div>
         <div className="toolbar">
           <button className="secondary-action" disabled={isBusy} onClick={() => onAction("init")} type="button">

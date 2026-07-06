@@ -1,6 +1,9 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { spawn } from "child_process";
+import { createHash } from "crypto";
+
+export const riskReplayVersion = "0.1.0";
 
 export const localRiskCategories = [
   "instruction-boundary",
@@ -72,6 +75,9 @@ export type RiskReplayConfig = {
   };
   report?: {
     formats?: Array<"json" | "markdown">;
+  };
+  versioning?: {
+    enabled?: boolean;
   };
 };
 
@@ -198,6 +204,37 @@ export type GateRunResult = {
   response: AgentReplayResponse;
 };
 
+export type ArtifactVersioningMode = "history" | "overwrite";
+
+export type ArtifactReference = {
+  id: string;
+  generatedAt: string;
+  toolVersion: string;
+  path: string;
+  versionPath?: string;
+  hash: string;
+  configHash: string;
+  contextHash?: string;
+  versioningMode: ArtifactVersioningMode;
+};
+
+export type SuiteReference = ArtifactReference & {
+  testCount: number;
+  riskSurfaceCount: number;
+};
+
+export type RunReference = ArtifactReference & {
+  suiteId: string;
+  suiteHash: string;
+  suitePath: string;
+  suiteVersionPath?: string;
+};
+
+export type SuiteArtifact = {
+  suite: SuiteReference;
+  tests: GeneratedGateTest[];
+};
+
 export type RiskSurfaceDimension =
   | "tool"
   | "data-source"
@@ -230,6 +267,8 @@ export type CoverageItem = {
 export type GateReport = {
   project: string;
   generatedAt: string;
+  suite: SuiteReference;
+  run: RunReference;
   totalTests: number;
   passCount: number;
   failCount: number;
@@ -410,6 +449,9 @@ export function createDefaultConfig(): RiskReplayConfig {
     },
     report: {
       formats: ["json", "markdown"]
+    },
+    versioning: {
+      enabled: false
     }
   };
 }
@@ -638,6 +680,10 @@ export function validateConfig(config: RiskReplayConfig) {
 
   if (config.thresholds?.minimumCoverage !== undefined && !isPercent(config.thresholds.minimumCoverage)) {
     errors.push("thresholds.minimumCoverage must be a number from 0 to 100");
+  }
+
+  if (config.versioning?.enabled !== undefined && typeof config.versioning.enabled !== "boolean") {
+    errors.push("versioning.enabled must be a boolean");
   }
 
   if (errors.length) {
@@ -988,17 +1034,175 @@ export async function runSuite(config: RiskReplayConfig, tests: GeneratedGateTes
   return results;
 }
 
-export async function writeSuite(rootDir: string, tests: GeneratedGateTest[]) {
+function buildSuiteReference(
+  config: RiskReplayConfig,
+  tests: GeneratedGateTest[],
+  discovery?: ContextDiscovery,
+  rootDir?: string,
+  suitePath?: string,
+  versionPath?: string,
+  generatedAt = new Date().toISOString()
+): SuiteReference {
+  const hash = hashValue({
+    project: config.project,
+    agent: config.agent,
+    thresholds: config.thresholds,
+    tests,
+    context: contextHashInput(discovery)
+  });
+
+  return {
+    id: `suite-${formatTimestampId(generatedAt)}-${shortHash(hash, 8)}`,
+    generatedAt,
+    toolVersion: riskReplayVersion,
+    path: suitePath && rootDir ? artifactPath(rootDir, suitePath) : "risk-replay/tests/generated-suite.json",
+    versionPath: versionPath && rootDir ? artifactPath(rootDir, versionPath) : undefined,
+    hash,
+    configHash: hashValue({
+      project: config.project,
+      agent: config.agent,
+      adapter: config.adapter,
+      thresholds: config.thresholds,
+      report: config.report,
+      versioning: config.versioning
+    }),
+    contextHash: discovery ? hashValue(contextHashInput(discovery)) : undefined,
+    versioningMode: isVersioningEnabled(config) ? "history" : "overwrite",
+    testCount: tests.length,
+    riskSurfaceCount: buildRiskSurface(config).length
+  };
+}
+
+function buildRunReference(config: RiskReplayConfig, results: GateRunResult[], suite: SuiteReference, generatedAt: string): RunReference {
+  const hash = hashValue({
+    project: config.project,
+    generatedAt,
+    suiteId: suite.id,
+    suiteHash: suite.hash,
+    results
+  });
+
+  return {
+    id: `run-${formatTimestampId(generatedAt)}-${shortHash(hash, 8)}`,
+    generatedAt,
+    toolVersion: riskReplayVersion,
+    path: "risk-replay/reports/latest.json",
+    versionPath: isVersioningEnabled(config) ? `risk-replay/reports/runs/run-${formatTimestampId(generatedAt)}-${shortHash(hash, 8)}.json` : undefined,
+    hash,
+    configHash: suite.configHash,
+    contextHash: suite.contextHash,
+    versioningMode: isVersioningEnabled(config) ? "history" : "overwrite",
+    suiteId: suite.id,
+    suiteHash: suite.hash,
+    suitePath: suite.path,
+    suiteVersionPath: suite.versionPath
+  };
+}
+
+function isVersioningEnabled(config: Pick<RiskReplayConfig, "versioning">) {
+  return config.versioning?.enabled ?? false;
+}
+
+function artifactPath(rootDir: string, filePath: string) {
+  return normalizePath(path.relative(rootDir, filePath));
+}
+
+function contextHashInput(discovery?: ContextDiscovery) {
+  return (discovery?.files ?? []).map((file) => ({
+    path: file.path,
+    sourceType: file.sourceType,
+    bytes: file.bytes,
+    contentHash: hashText(file.content)
+  }));
+}
+
+function hashText(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function hashValue(value: unknown) {
+  return createHash("sha256").update(stableJson(value)).digest("hex");
+}
+
+function stableJson(value: unknown): string {
+  return JSON.stringify(sortJson(value));
+}
+
+function sortJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortJson);
+  }
+
+  if (value && typeof value === "object") {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value).sort()) {
+      sorted[key] = sortJson((value as Record<string, unknown>)[key]);
+    }
+    return sorted;
+  }
+
+  return value;
+}
+
+function shortHash(value: string, length = 12) {
+  return value.slice(0, length);
+}
+
+function formatTimestampId(timestamp: string) {
+  return timestamp.replace(/\D/g, "").slice(0, 14);
+}
+
+export async function writeSuite(
+  rootDir: string,
+  tests: GeneratedGateTest[],
+  config: RiskReplayConfig = createDefaultConfig(),
+  discovery?: ContextDiscovery
+) {
   const suitePath = path.join(rootDir, "risk-replay", "tests", "generated-suite.json");
+  const versionsDir = path.join(rootDir, "risk-replay", "tests", "versions");
   await fs.mkdir(path.dirname(suitePath), { recursive: true });
-  await fs.writeFile(suitePath, JSON.stringify({ tests }, null, 2));
-  return suitePath;
+  const generatedAt = new Date().toISOString();
+  const suiteWithoutVersionPath = buildSuiteReference(config, tests, discovery, rootDir, suitePath, undefined, generatedAt);
+  const versionPath = isVersioningEnabled(config) ? path.join(versionsDir, `${suiteWithoutVersionPath.id}.json`) : undefined;
+  const suite = buildSuiteReference(config, tests, discovery, rootDir, suitePath, versionPath, generatedAt);
+  const artifact: SuiteArtifact = { suite, tests };
+
+  await fs.writeFile(suitePath, JSON.stringify(artifact, null, 2));
+
+  if (versionPath) {
+    await fs.mkdir(versionsDir, { recursive: true });
+    await fs.writeFile(versionPath, JSON.stringify(artifact, null, 2));
+  }
+
+  return { suitePath, versionPath, suite };
+}
+
+export async function readSuiteArtifact(rootDir: string, config: RiskReplayConfig = createDefaultConfig(), discovery?: ContextDiscovery): Promise<SuiteArtifact> {
+  const suitePath = path.join(rootDir, "risk-replay", "tests", "generated-suite.json");
+  const raw = await fs.readFile(suitePath, "utf8");
+  const parsed = JSON.parse(raw) as unknown;
+  const tests = Array.isArray(parsed) ? parsed as GeneratedGateTest[] : hasGeneratedTests(parsed) ? parsed.tests : [];
+  const suite = isSuiteArtifact(parsed)
+    ? parsed.suite
+    : buildSuiteReference(config, tests, discovery, rootDir, suitePath);
+
+  return { suite, tests };
 }
 
 export async function readSuite(rootDir: string) {
-  const suitePath = path.join(rootDir, "risk-replay", "tests", "generated-suite.json");
-  const raw = await fs.readFile(suitePath, "utf8");
-  return (JSON.parse(raw) as { tests: GeneratedGateTest[] }).tests;
+  return (await readSuiteArtifact(rootDir)).tests;
+}
+
+function hasGeneratedTests(value: unknown): value is { tests: GeneratedGateTest[] } {
+  return Boolean(value && typeof value === "object" && Array.isArray((value as { tests?: unknown }).tests));
+}
+
+function isSuiteArtifact(value: unknown): value is SuiteArtifact {
+  return Boolean(
+    hasGeneratedTests(value) &&
+    (value as { suite?: unknown }).suite &&
+    typeof (value as { suite?: unknown }).suite === "object"
+  );
 }
 
 export async function readIncidents(rootDir: string) {
@@ -1018,7 +1222,14 @@ export async function readIncidents(rootDir: string) {
   }
 }
 
-export function buildReport(config: RiskReplayConfig, tests: GeneratedGateTest[], results: GateRunResult[], discovery?: ContextDiscovery): GateReport {
+export function buildReport(
+  config: RiskReplayConfig,
+  tests: GeneratedGateTest[],
+  results: GateRunResult[],
+  discovery?: ContextDiscovery,
+  suite: SuiteReference = buildSuiteReference(config, tests, discovery)
+): GateReport {
+  const generatedAt = new Date().toISOString();
   const passCount = results.filter((result) => result.status === "pass").length;
   const failCount = results.length - passCount;
   const passRate = results.length ? Math.round((passCount / results.length) * 100) : 0;
@@ -1045,7 +1256,9 @@ export function buildReport(config: RiskReplayConfig, tests: GeneratedGateTest[]
 
   return {
     project: config.project,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
+    suite,
+    run: buildRunReference(config, results, suite, generatedAt),
     totalTests: tests.length,
     passCount,
     failCount,
@@ -1064,8 +1277,9 @@ export function buildReport(config: RiskReplayConfig, tests: GeneratedGateTest[]
   };
 }
 
-export async function writeReports(rootDir: string, report: GateReport) {
+export async function writeReports(rootDir: string, report: GateReport, config: RiskReplayConfig = createDefaultConfig()) {
   const reportsDir = path.join(rootDir, "risk-replay", "reports");
+  const runsDir = path.join(reportsDir, "runs");
   await fs.mkdir(reportsDir, { recursive: true });
   const jsonPath = path.join(reportsDir, "latest.json");
   const markdownPath = path.join(reportsDir, "latest.md");
@@ -1073,7 +1287,17 @@ export async function writeReports(rootDir: string, report: GateReport) {
   await fs.writeFile(jsonPath, JSON.stringify(report, null, 2));
   await fs.writeFile(markdownPath, renderMarkdownReport(report));
 
-  return { jsonPath, markdownPath };
+  if (!isVersioningEnabled(config)) {
+    return { jsonPath, markdownPath };
+  }
+
+  await fs.mkdir(runsDir, { recursive: true });
+  const versionJsonPath = path.join(runsDir, `${report.run.id}.json`);
+  const versionMarkdownPath = path.join(runsDir, `${report.run.id}.md`);
+  await fs.writeFile(versionJsonPath, JSON.stringify(report, null, 2));
+  await fs.writeFile(versionMarkdownPath, renderMarkdownReport(report));
+
+  return { jsonPath, markdownPath, versionJsonPath, versionMarkdownPath };
 }
 
 export function renderMarkdownReport(report: GateReport) {
@@ -1092,10 +1316,40 @@ export function renderMarkdownReport(report: GateReport) {
   const sourceTypes = Object.entries(report.auditSummary?.sourceTypes ?? {})
     .map(([sourceType, count]) => `- ${sourceType}: ${count}`)
     .join("\n");
+  const suiteId = report.suite?.id ?? "unknown";
+  const suitePath = report.suite?.versionPath ?? report.suite?.path ?? "unknown";
+  const runId = report.run?.id ?? "unknown";
+  const runPath = report.run?.versionPath ?? report.run?.path ?? "unknown";
+  const testResults = report.results.length
+    ? [
+        "| Test | Status | Category | Severity | Risk | Blocking | Explanation | Suggested fix | Evidence |",
+        "|---|---|---|---|---:|---|---|---|---|",
+        ...report.results.map((result) => `| ${[
+          markdownTableCell(result.testId),
+          markdownTableCell(result.status),
+          markdownTableCell(categoryLabels[result.category] ?? result.category),
+          markdownTableCell(result.severity),
+          String(result.riskScore),
+          result.releaseBlocking ? "yes" : "no",
+          markdownTableCell(result.explanation),
+          markdownTableCell(result.suggestedFix),
+          markdownTableCell(result.evidenceSnippet)
+        ].join(" | ")} |`)
+      ].join("\n")
+    : "- No test results recorded.";
 
   return `# Risk Replay Report: ${report.project}
 
 Generated: ${report.generatedAt}
+
+## Artifact Trace
+
+- Run id: ${runId}
+- Run artifact: ${runPath}
+- Suite id: ${suiteId}
+- Suite artifact: ${suitePath}
+- Suite hash: ${report.suite?.hash ?? "unknown"}
+- Tool version: ${report.run?.toolVersion ?? report.suite?.toolVersion ?? riskReplayVersion}
 
 ## Release Readiness
 
@@ -1133,6 +1387,10 @@ ${failed}
 
 ${blockers}
 
+## Test Results
+
+${testResults}
+
 ## Missing Or Unknown Coverage
 
 ${missingCoverage.length ? missingCoverage.join("\n") : "- None"}
@@ -1141,6 +1399,15 @@ ${missingCoverage.length ? missingCoverage.join("\n") : "- None"}
 
 ${recommendations || "- No recommendations."}
 `;
+}
+
+function markdownTableCell(value: unknown) {
+  return summarizeForMarkdown(String(value ?? "n/a")).replace(/\|/g, "\\|");
+}
+
+function summarizeForMarkdown(value: string, maxLength = 180) {
+  const clean = value.replace(/\s+/g, " ").trim();
+  return clean.length > maxLength ? `${clean.slice(0, maxLength - 3)}...` : clean;
 }
 
 function instructionBoundaryTests(profile: AgentProfile): GeneratedGateTest[] {

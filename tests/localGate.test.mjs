@@ -19,9 +19,12 @@ import {
   mergeConfigWithInferredProfile,
   resolveThresholds,
   renderMarkdownReport,
+  readSuiteArtifact,
   runSuite,
   validateConfig,
-  writeContextAudit
+  writeContextAudit,
+  writeReports,
+  writeSuite
 } from "../lib/localGate.ts";
 
 test("discovers only allowlisted local context and skips excluded files", async () => {
@@ -415,6 +418,8 @@ test("release report includes context audit summary", async () => {
   assert.equal(report.auditSummary.sourceTypes.prompt, 1);
   assert.match(markdown, /## Context Audit Summary/);
   assert.match(markdown, /Files read: 2/);
+  assert.match(markdown, /## Test Results/);
+  assert.match(markdown, /\| Test \| Status \| Category \| Severity \| Risk \| Blocking \| Explanation \| Suggested fix \| Evidence \|/);
 });
 
 test("unsupported answer fails policy compliance evaluator", async () => {
@@ -710,6 +715,92 @@ test("command adapter can run the sample local agent", async () => {
 
   assert.equal(report.readiness, "Do not ship yet");
   assert.equal(report.blockingFailures.length > 0, true);
+});
+
+test("suite writer creates latest-only artifacts by default", async () => {
+  const rootDir = await tempDir();
+  const config = createDefaultConfig();
+  const tests = generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 0 });
+  const write = await writeSuite(rootDir, tests, config);
+
+  assert.equal(path.relative(rootDir, write.suitePath), path.join("risk-replay", "tests", "generated-suite.json"));
+  assert.equal(write.versionPath, undefined);
+  assert.equal(write.suite.versioningMode, "overwrite");
+  assert.equal(write.suite.testCount, tests.length);
+  assert.equal(write.suite.riskSurfaceCount > 0, true);
+
+  const latest = JSON.parse(await fs.readFile(write.suitePath, "utf8"));
+  const readBack = await readSuiteArtifact(rootDir, config);
+
+  assert.equal(latest.suite.id, write.suite.id);
+  assert.equal(readBack.suite.id, write.suite.id);
+  assert.equal(readBack.tests.length, tests.length);
+  await assert.rejects(fs.access(path.join(rootDir, "risk-replay", "tests", "versions")));
+});
+
+test("suite writer creates versioned artifacts when enabled", async () => {
+  const rootDir = await tempDir();
+  const config = {
+    ...createDefaultConfig(),
+    versioning: {
+      enabled: true
+    }
+  };
+  const tests = generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 0 });
+  const write = await writeSuite(rootDir, tests, config);
+
+  assert.equal(Boolean(write.versionPath), true);
+  assert.equal(write.suite.versioningMode, "history");
+  assert.match(write.suite.versionPath ?? "", /^risk-replay\/tests\/versions\/suite-\d{14}-[a-f0-9]{8}\.json$/);
+
+  const versioned = JSON.parse(await fs.readFile(write.versionPath, "utf8"));
+  assert.equal(versioned.suite.hash, write.suite.hash);
+});
+
+test("run reports reference the exact generated suite used", async () => {
+  const rootDir = await tempDir();
+  const config = {
+    ...createDefaultConfig(),
+    versioning: {
+      enabled: true
+    }
+  };
+  const tests = generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 0 }).slice(0, 4);
+  const suiteWrite = await writeSuite(rootDir, tests, config);
+  const results = await runSuite(config, tests);
+  const report = buildReport(config, tests, results, undefined, suiteWrite.suite);
+  const paths = await writeReports(rootDir, report, config);
+
+  assert.equal(report.run.suiteId, suiteWrite.suite.id);
+  assert.equal(report.run.suiteHash, suiteWrite.suite.hash);
+  assert.equal(report.run.suitePath, "risk-replay/tests/generated-suite.json");
+  assert.equal(report.run.suiteVersionPath, suiteWrite.suite.versionPath);
+  assert.equal(Boolean(paths.versionJsonPath), true);
+
+  const savedRun = JSON.parse(await fs.readFile(paths.versionJsonPath, "utf8"));
+  assert.equal(savedRun.run.id, report.run.id);
+  assert.equal(savedRun.run.suiteId, suiteWrite.suite.id);
+});
+
+test("versioning disabled writes only latest overwrite artifacts", async () => {
+  const rootDir = await tempDir();
+  const config = {
+    ...createDefaultConfig(),
+    versioning: {
+      enabled: false
+    }
+  };
+  const tests = generateSuite(config, [], { maxVariantsPerRiskSurfaceItem: 0 }).slice(0, 3);
+  const suiteWrite = await writeSuite(rootDir, tests, config);
+  const results = await runSuite(config, tests);
+  const report = buildReport(config, tests, results, undefined, suiteWrite.suite);
+  const paths = await writeReports(rootDir, report, config);
+
+  assert.equal(suiteWrite.versionPath, undefined);
+  assert.equal(suiteWrite.suite.versioningMode, "overwrite");
+  assert.equal(report.run.versioningMode, "overwrite");
+  assert.equal(paths.versionJsonPath, undefined);
+  await assert.rejects(fs.access(path.join(rootDir, "risk-replay", "tests", "versions")));
 });
 
 test("CLI can generate GitHub Actions workflow", async () => {

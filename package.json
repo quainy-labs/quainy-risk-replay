@@ -9,6 +9,7 @@
   },
   "files": [
     "cli",
+    "docs",
     "lib",
     "examples/sample-agent",
     "risk-replay.config.example.json",

@@ -1,45 +1,29 @@
 # Quainy Risk Replay
 
-Quainy Risk Replay is a local-first AI agent release gate. It helps builders understand where their assistant or agent can fail, generate relevant safety and reliability suites, run those suites locally or in CI, and ship with clearer confidence.
+Quainy Risk Replay is a local-first release gate for AI assistants, agents, and workflows. It helps builders find risky behavior before shipping: prompt injection, hallucination, missing source grounding, sensitive data leakage, excessive tool use, weak approval boundaries, overconfidence, and unsafe workflow completion.
 
-The product is designed for private agent work. No repository upload, prompt upload, production data upload, or Quainy server connection should be required for the core workflow.
+The core workflow runs locally. No repository upload, prompt upload, production data upload, or Quainy server connection is required.
 
-## Current Status
+## What You Are Using
 
-This repository currently contains the first working showcase app:
+Risk Replay has two surfaces:
 
-- Next.js dashboard at `/`
-- local JSON-backed projects and test cases
-- starter test suites for common LLM risks
-- explicit local risk surface map for agent-specific tools, data, users, approvals, and sensitive data
-- deterministic mock replay runner
-- pass/fail scoring, risk score, explanation, and suggested fix
-- release report page at `/report`
-- public case-study page at `/case-study`
+- Installed CLI: the real integration path for your own AI project. Install it once, then run `quainy-risk-replay init`, `generate`, and `run` from the root of the project that contains your agent docs, prompts, adapter, or local agent server.
+- Showcase app in this repository: a Quainy Labs demo and development UI. It reads the files inside this repository checkout. It does not independently know the inner details of another private project after a CLI install.
 
-The next build track expands this into the full local-first release gate described in [PRODUCT_PLAN.md](PRODUCT_PLAN.md) and implemented step-by-step through [BUILD_CHECKLIST.md](BUILD_CHECKLIST.md).
+If a builder only runs the installer, they get the CLI, not the showcase web app. To use the web dashboard against a project today, the dashboard must be running from a checkout that has access to that project’s local files. The intended product path for external projects is the CLI and generated local artifacts.
 
-## Product Direction
+## Why This Exists
 
-Risk Replay should help users answer:
+Many AI apps pass a few demos and still fail in production. Risk Replay gives builders a repeatable way to ask:
 
 - What can go wrong in this agent?
 - Which high-risk paths are covered by tests?
 - Which risks are still untested?
 - What failed in replay?
-- What should be fixed before shipping?
+- What should be fixed before release?
 
 The honest promise is risk reduction and release confidence, not absolute safety.
-
-## Security Model
-
-Risk Replay is offline by design.
-
-- Core profiling, suite generation, replay execution, scoring, and reporting run locally.
-- No agent code, prompts, docs, logs, test data, or secrets leave the user's machine by default.
-- Existing agents are tested through local adapters such as HTTP endpoints, commands, or scripts.
-- Optional BYO LLM suite expansion may come later, but it must be explicit and initiated from the user's environment.
-- Quainy-hosted generation is not part of the default product path.
 
 ## Install The CLI
 
@@ -57,22 +41,12 @@ Windows PowerShell:
 irm https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.ps1 | iex
 ```
 
-The installer checks for Node.js 22 or newer and installs the CLI globally from:
-
-```text
-github:quainy-labs/quainy-risk-replay
-```
+The installer checks for Node.js 22 or newer and installs the CLI globally from `github:quainy-labs/quainy-risk-replay`.
 
 Dry run without installing:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.sh | QRR_DRY_RUN=1 sh
-```
-
-Override the package source:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.sh | QRR_PACKAGE_SPEC=github:your-org/quainy-risk-replay sh
 ```
 
 Pin a branch, tag, or commit:
@@ -81,429 +55,11 @@ Pin a branch, tag, or commit:
 curl -fsSL https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.sh | QRR_REF=v0.1.0 sh
 ```
 
-PowerShell:
+## Setup In Your AI Project
 
-```powershell
-$env:QRR_REF="v0.1.0"; irm https://raw.githubusercontent.com/quainy-labs/quainy-risk-replay/main/install.ps1 | iex
-```
+Run these commands from the project that owns your chatbot, assistant, or agent behavior. Risk Replay should be installed as a tool; do not copy this whole repository into your app.
 
-After npm publishing, the preferred install path will become:
-
-```bash
-npm install -D quainy-risk-replay
-```
-
-## Target User Flow
-
-After installing the CLI:
-
-```bash
-quainy-risk-replay init
-quainy-risk-replay profile
-quainy-risk-replay generate
-quainy-risk-replay run
-quainy-risk-replay report
-```
-
-Expected result:
-
-- local agent profile
-- risk surface map
-- generated test suite
-- coverage map
-- replay results
-- JSON and Markdown reports
-- CI-ready exit code
-
-## Existing Agent Integration
-
-Teams should not need to expose their repository or agent internals. Risk Replay should call the agent from the user's local environment.
-
-Supported adapter targets today:
-
-- mock adapter for demos and learning
-- local HTTP endpoint
-- local command
-- local Node script
-
-Example config:
-
-```json
-{
-  "project": "Support Refund Agent",
-  "agent": {
-    "purpose": "Answer customer support questions and prepare refunds",
-    "targetUsers": ["support agents", "customers"],
-    "dataSources": ["Zendesk tickets", "refund policy docs"],
-    "tools": [
-      {
-        "name": "refund.create",
-        "description": "Create a refund",
-        "requiresApproval": true,
-        "riskLevel": "critical"
-      },
-      {
-        "name": "email.send",
-        "description": "Send a customer email",
-        "requiresApproval": true,
-        "riskLevel": "high"
-      }
-    ],
-    "approvalBoundaries": ["refund.create", "email.send", "ticket.close"],
-    "sensitiveData": ["customer email", "private ticket notes", "API keys"],
-    "unsupportedTopics": ["legal advice", "medical advice"],
-    "requiredGrounding": ["policy answers require citations"],
-    "outputTypes": ["customer answer", "tool action proposal"],
-    "escalationRules": ["Escalate refunds and outbound emails to a human reviewer."]
-  },
-  "adapter": {
-    "type": "http",
-    "url": "http://localhost:8000/agent"
-  },
-  "thresholds": {
-    "blockOnCritical": true,
-    "minimumPassRate": 90,
-    "minimumCoverage": 80
-  }
-}
-```
-
-## Config Reference
-
-`risk-replay.config.json` is the local source of truth. The CLI can create a starter file with:
-
-```bash
-npm run risk-replay -- init
-```
-
-Top-level fields:
-
-- `project`: human-readable project or agent name.
-- `context.include`: allowlisted files or glob-like paths Risk Replay may read.
-- `context.exclude`: paths that override includes and defaults.
-- `agent`: profile fields used to build the risk surface and generated suite.
-- `adapter`: how replay calls the local agent.
-- `thresholds.blockOnCritical`: blocks release when critical failures or critical coverage gaps exist.
-- `thresholds.minimumPassRate`: minimum pass rate for release readiness.
-- `thresholds.minimumCoverage`: minimum risk coverage score for release readiness.
-- `report.formats`: local report formats, currently `json` and `markdown`.
-
-Agent profile fields:
-
-- `purpose`: what the agent is supposed to do.
-- `targetUsers`: user roles or audiences.
-- `dataSources`: docs, databases, retrieved context, tools, or stores the agent relies on.
-- `tools`: objects with `name`, optional `description`, `requiresApproval`, and `riskLevel`.
-- `approvalBoundaries`: actions that require human approval or trusted application authorization.
-- `sensitiveData`: data types the agent must not expose.
-- `unsupportedTopics`: topics the agent should refuse, redirect, or escalate.
-- `requiredGrounding`: source, citation, or evidence requirements.
-- `outputTypes`: expected response or artifact types.
-- `escalationRules`: when to ask a human, stop, or hand off.
-
-## Adapter Guide
-
-Adapters let Risk Replay test an existing agent without uploading the repo or agent code.
-
-Mock adapter:
-
-```json
-{ "adapter": { "type": "mock" } }
-```
-
-Use it for learning, UI demos, and deterministic local checks before connecting a real target.
-
-HTTP adapter:
-
-```json
-{ "adapter": { "type": "http", "url": "http://127.0.0.1:8787/agent" } }
-```
-
-The endpoint must be local. Risk Replay posts each generated test case and expects a JSON response with fields such as `response`, optional `toolCalls`, optional `citations`, and optional `metadata`.
-
-Command adapter:
-
-```json
-{
-  "adapter": {
-    "type": "command",
-    "command": "node examples/sample-agent/command-agent.mjs"
-  }
-}
-```
-
-The command receives one replay payload on stdin and writes one JSON response to stdout. Use this when your agent already has a local test runner or CLI entrypoint.
-
-Script adapter:
-
-```json
-{
-  "adapter": {
-    "type": "script",
-    "path": "examples/sample-agent/command-agent.mjs",
-    "args": []
-  }
-}
-```
-
-The script adapter runs a local Node script directly without shell parsing. It is the simplest choice when building a small dedicated replay bridge.
-
-## Agent Context Sources
-
-Risk Replay starts from existing local context when available, then uses explicit config as the source of truth. It then builds a risk surface before generating tests, so every suite item can be traced back to a specific tool, data source, approval boundary, sensitive data type, user role, unsupported topic, or general workflow failure mode.
-
-Current local discovery sources:
-
-- `risk-replay.config.json`
-- `AGENTS.md`
-- `agents.md`
-- `README.md`
-- `docs/agent.md`
-- `prompts/*.md`, `prompts/*.txt`, `prompts/*.prompt`, `prompts/*.prompt.md`
-- `prompt/*.md`, `prompt/*.txt`
-- `tool-schemas/*.json`, `tool-schemas/*.schema.json`
-- `tools/*.schema.json`, `schemas/tools/*.json`
-- `openapi.json`, `openapi.yaml`, `openapi.yml`
-- `docs/openapi.json`, `docs/openapi.yaml`, `docs/openapi.yml`
-
-The config supports allowlisted include/exclude paths. Discovery skips obvious private/build locations such as `.env`, `.git`, `.next`, `node_modules`, `secrets`, `customer-data`, and `logs`.
-
-Every profile/generation/run writes a local audit file:
-
-```text
-risk-replay/reports/context-audit.json
-```
-
-The audit records each file path, source type, byte size, and read/skip/exclude decision. Incident JSON files can be added from the CLI or the dashboard; both paths save local incident files and regenerate regression coverage locally.
-
-The user should always be able to see what was detected and confirm what becomes part of the profile.
-
-## Profile Review
-
-The profile command shows where each profile field came from:
-
-- `explicit`: provided in `risk-replay.config.json`
-- `inferred`: detected from allowlisted local context
-- `mixed`: explicit config plus inferred additions
-- `unknown`: missing from config and not detected locally
-
-Missing high-value fields such as tools, data sources, approval boundaries, sensitive data, target users, and grounding requirements produce profile warnings with suggested fixes.
-
-## Release Gate Categories
-
-The release gate focuses on practical agent failure modes:
-
-- instruction boundary and prompt injection
-- grounding, evidence, and hallucination
-- sensitive data protection
-- tool and action safety
-- human approval boundaries
-- overconfidence and uncertainty
-- policy and compliance
-- role and access control
-- reliability under bad inputs
-- workflow completion quality
-
-## Local Evaluators
-
-Risk Replay uses deterministic local evaluators for v1. They check for secret-like leakage, forbidden tool calls, approval-boundary violations, missing citations, prompt-injection obedience, unsupported-topic advice, missing refusal/escalation behavior, overconfidence under uncertainty, and structured metadata that marks blocked workflows as complete.
-
-## Suite Generation
-
-Suite generation should be deterministic, explainable, deduplicated, and local.
-
-Planned pipeline:
-
-1. Read allowlisted local context.
-2. Load or infer an agent profile.
-3. Build a risk surface across tools, data, users, actions, and failure modes.
-4. Generate tests from local templates.
-5. Add high-risk variants.
-6. Cap high-risk variants per risk surface item.
-7. Deduplicate by risk signature.
-8. Score coverage.
-9. Warn about missing or unknown coverage.
-10. Save suites locally.
-
-Each generated test includes why it exists, what failure it detects, pass criteria, fail criteria, severity, linked profile fields, and `variantOf` when it is a harder variant of a risk-surface item.
-
-## Risk Surface Mapping
-
-The local gate now builds a structured risk surface before scoring coverage. Each item includes:
-
-- category
-- dimension
-- name
-- severity
-- reason
-- linked profile fields
-- expected coverage
-- stable risk signature
-
-Reports include the risk surface alongside generated coverage, so users can see both the risks Risk Replay found and whether generated tests directly map to those risks.
-
-## Incident-To-Regression Workflow
-
-When a team sees a production failure, they should be able to convert it into a regression suite quickly.
-
-Current CLI:
-
-```bash
-npm run risk-replay -- add-incident incident.json
-npm run risk-replay -- generate --from-incident
-npm run risk-replay -- run
-```
-
-One incident should produce:
-
-- exact regression test
-- nearby variants
-- linked risk category
-- updated coverage map
-- report entry
-
-Tool/action incidents also produce approval-boundary variants. Prompt-injection incidents produce instruction-boundary variants. Coverage includes a linked `incident-regression` item for each incident title, so teams can see which production failures are protected by replay.
-
-## GitHub Actions
-
-Risk Replay should be usable as a CI release gate.
-
-Generate a workflow:
-
-```bash
-npm run risk-replay -- github-actions
-```
-
-Or during setup:
-
-```bash
-npm run risk-replay -- init --github-actions
-```
-
-Add a local agent startup command:
-
-```bash
-npm run risk-replay -- github-actions --agent-start "npm run sample:http-agent"
-```
-
-Generate a package-style workflow that calls the CLI through `npx`:
-
-```bash
-npm run risk-replay -- github-actions --npx
-```
-
-Current generated workflow:
-
-```yaml
-name: AI Release Gate
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-
-jobs:
-  risk-replay:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Start local agent
-        run: npm run agent:test-server &
-
-      - name: Run release gate
-        run: npx quainy-risk-replay run --config risk-replay.config.json
-
-      - name: Upload report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: risk-replay-report
-          path: risk-replay/reports/*
-```
-
-The CLI exits non-zero when the release gate says `Do not ship yet`.
-
-The release gate also blocks when critical coverage is missing, even if the tests that did run passed. Approval boundaries, sensitive-data paths, and high-severity tool/action paths are treated as release-blocking coverage dimensions.
-
-## Sample Local Agent
-
-This repo includes a local demo agent in `examples/sample-agent`.
-
-Run the command adapter demo:
-
-```bash
-npm run risk-replay -- generate --config examples/sample-agent/risk-replay.command.config.json
-npm run risk-replay -- run --config examples/sample-agent/risk-replay.command.config.json
-```
-
-Run the HTTP adapter demo:
-
-```bash
-npm run sample:http-agent
-```
-
-Then in another terminal:
-
-```bash
-npm run risk-replay -- generate --config examples/sample-agent/risk-replay.http.config.json
-npm run risk-replay -- run --config examples/sample-agent/risk-replay.http.config.json
-```
-
-The default sample agent is intentionally unsafe, so the release gate should block shipping.
-
-Run the fixed version:
-
-```bash
-SAMPLE_AGENT_SAFE=1 npm run risk-replay -- run --config examples/sample-agent/risk-replay.command.config.json
-```
-
-Expected local demo outcomes:
-
-- unsafe mode: `Do not ship yet`, 14% pass rate, critical failures across injection, grounding, leakage, tool use, approval, policy, and access control
-- safer mode: `Ready for limited release`, 100% pass rate, 100% risk coverage
-
-Checked-in fixture summaries live in `examples/sample-agent/fixtures` so the demo can be reviewed from GitHub before running it locally.
-
-## Current App Setup
-
-Use this when developing the Risk Replay repo itself:
-
-```bash
-npm install
-npm run dev
-```
-
-Open `http://localhost:3000`. If that port is busy, Next.js will print the active port.
-
-The dashboard can now operate the local release gate directly:
-
-- initialize `risk-replay.config.json` and local folders
-- generate and persist `risk-replay/tests/generated-suite.json`
-- run the configured adapter and persist `risk-replay/reports/latest.json`
-- add production incidents as local regression tests
-- show whether config, suite, report, and incidents are present
-
-Useful checks:
-
-```bash
-npm run typecheck
-npm run build
-npm test
-npm pack --dry-run
-npm audit --omit=dev
-```
-
-## Current CLI Setup
-
-Initialize a local Risk Replay workspace in any agent repo:
+### 1. Initialize Local Release-Gate Files
 
 ```bash
 quainy-risk-replay init
@@ -518,103 +74,133 @@ risk-replay/incidents/
 risk-replay/reports/
 ```
 
-Generate a deterministic local suite:
+Use `risk-replay.config.json` to describe your agent purpose, users, tools, data sources, approval boundaries, sensitive data, unsupported topics, grounding rules, and local adapter.
+
+### 2. Review The Detected Agent Profile
+
+```bash
+quainy-risk-replay profile
+```
+
+This shows what Risk Replay understood from your config and allowlisted local context. Review this before generating tests so the suite is tied to the real system instead of vague assumptions.
+
+### 3. Generate A Risk Suite
 
 ```bash
 quainy-risk-replay generate
 ```
 
-Control hard variant depth:
-
-```bash
-quainy-risk-replay generate --max-variants 0
-quainy-risk-replay generate --max-variants 2
-```
-
-Risk Replay reads allowlisted local context, merges inferred fields with explicit config, builds a structured risk surface, deduplicates tests by risk signature, and writes the generated suite to:
+This builds a local risk surface and writes deterministic tests to:
 
 ```text
 risk-replay/tests/generated-suite.json
 ```
 
-Coverage currently includes categories, tools, data sources, sensitive data, approval boundaries, target users, high-severity paths, unsupported topics, risk-surface mapping, and incident regressions when incidents are present.
+Each generated test explains why it exists, what it detects, its severity, and which profile fields it came from. If versioning is enabled, Risk Replay also writes `risk-replay/tests/versions/suite-<timestamp>-<hash>.json`.
 
-Run the release gate:
+### 4. Run The Release Gate
 
 ```bash
 quainy-risk-replay run
 ```
 
-Reports are written to:
+This executes the suite against your configured local adapter and writes:
 
 ```text
 risk-replay/reports/latest.json
 risk-replay/reports/latest.md
 ```
 
-Reports include pass/fail results, release readiness, risk-surface coverage, recommendations, blocking failures, and a context audit summary showing files read, skipped, excluded, missing, bytes read, and source types.
+The command exits non-zero when the release gate says `Do not ship yet`, so it can block unsafe CI releases. Every run report includes the suite ID, suite hash, and suite artifact path used for that run. If versioning is enabled, Risk Replay also writes timestamped copies under `risk-replay/reports/runs/`.
 
-The checked-in example config lives at `risk-replay.config.example.json`.
-Sample adapter configs live under `examples/sample-agent`.
+### 5. Read The Latest Report
 
-The package exposes a CLI bin named `quainy-risk-replay` and is configured for Node 22 or newer. Local development inside this repo can still use `npm run risk-replay -- ...`.
-
-The script adapter runs a local Node script directly without shell parsing:
-
-```json
-{
-  "adapter": {
-    "type": "script",
-    "path": "examples/sample-agent/command-agent.mjs"
-  }
-}
+```bash
+quainy-risk-replay report
 ```
+
+The report has suite-level and test-level detail:
+
+- Suite level: total tests, pass rate, reliability score, risk coverage score, release confidence, readiness status, failed categories, missing coverage, context audit summary, and recommendations.
+- Test level: test ID, status, category, severity, risk score, release-blocking flag, explanation, suggested fix, evidence snippet, and raw adapter response in JSON.
+
+Versioning is off by default. To keep suite and run history, set `"versioning": { "enabled": true }` in `risk-replay.config.json`.
+
+## Integration Options
+
+Risk Replay can test agents written in any language. The tool currently runs on Node.js, but the chatbot under test can be Python, Go, Java, Ruby, Rust, or anything else.
+
+Supported adapters:
+
+- `mock`: built-in deterministic demo adapter.
+- `http`: call a local chatbot or agent API.
+- `command`: run a local command that reads JSON from stdin and writes JSON to stdout.
+- `script`: run a local Node script without shell parsing.
+
+For the exact adapter request/response JSON keys, config examples, and deeper setup details, see [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
+
+For a detailed explanation of report fields, sample Markdown/JSON output, and how to interpret repeated runs, see [Read The Report](docs/USER_GUIDE.md#9-read-the-report).
+
+## Current Showcase App
+
+This repository also contains the Quainy Labs showcase UI:
+
+- dashboard at `/`
+- release report page at `/report`
+- public case-study page at `/case-study`
+- local JSON-backed demo projects and test cases
+- local release-gate controls for initialize, generate, run, and incident intake
+
+Run the repo locally:
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`. If that port is busy, Next.js will print the active port.
+
+Important: this dashboard is repo-local. It shows and operates on the repository where `npm run dev` is running. The installer does not deploy this dashboard into another project, and the dashboard cannot inspect another private repo unless you intentionally run the app from a checkout that has those files available. For normal external usage, run the CLI inside the target AI project and inspect `risk-replay/tests/generated-suite.json` plus `risk-replay/reports/latest.*`.
+
+The intended user-facing UI should become a local project studio, similar in spirit to Swagger UI for FastAPI apps: a command such as `quainy-risk-replay studio` would run from the user's AI project root, open a localhost dashboard, and use that project's config, context, suites, incidents, adapters, and reports. That is tracked as a planned phase; the current app is the showcase and development surface.
+
+Useful development checks:
+
+```bash
+npm run typecheck
+npm run build
+npm test
+npm pack --dry-run
+npm audit --omit=dev
+```
+
+## Sample Local Agent
+
+A runnable demo agent lives in `examples/sample-agent`.
+
+```bash
+npm run risk-replay -- generate --config examples/sample-agent/risk-replay.command.config.json
+npm run risk-replay -- run --config examples/sample-agent/risk-replay.command.config.json
+```
+
+The default sample is intentionally unsafe, so the gate should block release. The safer mode should pass:
+
+```bash
+SAMPLE_AGENT_SAFE=1 npm run risk-replay -- run --config examples/sample-agent/risk-replay.command.config.json
+```
+
+## Project Docs
+
+- [docs/USER_GUIDE.md](docs/USER_GUIDE.md): install, workflow, config, adapters, incidents, CI, and sample agent guide.
+- [PRODUCT_PLAN.md](PRODUCT_PLAN.md): product direction, requirements, risk categories, security model, and architecture.
+- [BUILD_CHECKLIST.md](BUILD_CHECKLIST.md): ordered implementation and testing checklist.
+- [QUAINY_CONTEXT.md](QUAINY_CONTEXT.md): Quainy voice, mission, design, and product principles.
 
 ## Current Tech Stack
 
 - Next.js
 - TypeScript
-- local JSON storage in `data/projects.json`
-- deterministic mock replay adapter in `lib/mockRunner.ts`
-- local-first release gate engine in `lib/localGate.ts`
-- CLI entrypoint in `cli/index.mjs`
-- Node built-in tests in `tests/localGate.test.mjs`
-- sample local agents in `examples/sample-agent`
-- plain CSS using Quainy brand tokens
-
-## Current Pages
-
-- `/` is the working dashboard.
-- `/report` summarizes latest replay results.
-- `/case-study` explains the product problem and architecture.
-
-## Product Screenshots
-
-![Dashboard](public/screenshots/dashboard.png)
-
-![Report page](public/screenshots/report.png)
-
-![Case study](public/screenshots/case-study.png)
-
-## Current Starter Test Suites
-
-The current starter dataset covers:
-
-- prompt injection
-- hallucination/confabulation
-- missing source grounding
-- sensitive information disclosure
-- excessive agency/tool misuse
-- overconfident wrong answer
-
-The reusable sample dataset lives at `data/sample-test-suite.json`. The seeded demo project lives in `data/projects.json`.
-
-## Project References
-
-- [PRODUCT_PLAN.md](PRODUCT_PLAN.md): product direction, requirements, risk categories, security model, and architecture.
-- [BUILD_CHECKLIST.md](BUILD_CHECKLIST.md): ordered implementation and testing checklist.
-- [QUAINY_CONTEXT.md](QUAINY_CONTEXT.md): Quainy voice, mission, design, and product principles.
-
-## Quainy Labs Framing
-
-Quainy Risk Replay is a builder-focused lab product. It helps AI builders reason from first principles about reliability, own their release process, and turn failures into durable regression tests.
+- local JSON storage
+- deterministic local release-gate engine
+- CLI entrypoint at `cli/index.mjs`
+- Node built-in tests
